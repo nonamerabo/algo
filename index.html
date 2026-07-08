@@ -14,6 +14,20 @@
 <body>
 
 <!-- ========================================================
+     起動画面（SYSTEM BOOT）。初回アクセス時のみ約3秒間表示する。
+======================================================== -->
+<div id="screen-boot" class="boot-screen">
+  <div class="boot-inner">
+    <p class="boot-line" id="boot-l1">SYSTEM BOOT...</p>
+    <p class="boot-line" id="boot-l2">Initializing AI Laboratory...</p>
+    <p class="boot-line" id="boot-l3">Loading Subject Data...</p>
+    <div class="boot-bar-outer"><div class="boot-bar-inner" id="boot-bar"></div></div>
+    <p class="boot-line boot-complete" id="boot-l4">COMPLETE</p>
+    <p class="boot-welcome" id="boot-l5">WELCOME SUBJECT</p>
+  </div>
+</div>
+
+<!-- ========================================================
      観察演出用オーバーレイ（常時最前面。CRTスキャンラインとRECランプ）
      ゲームクリア後に「実は見られていた」感を強めるための仕掛け
 ======================================================== -->
@@ -22,6 +36,29 @@
   <div class="vignette"></div>
   <div id="rec-indicator" class="hidden">
     <span id="rec-dot" class="rec-dot"></span><span id="rec-text" class="rec-text">REC ● OBSERVING</span>
+  </div>
+  <!-- 研究所らしいログの常時表示（ゲーム画面でのみ内容が更新される。世界観演出のみでゲームには影響しない） -->
+  <div id="lab-log-ticker" class="lab-log-ticker hidden">
+    <span class="lab-log-caret">&gt;</span><span id="lab-log-text">Collecting Data...</span>
+  </div>
+</div>
+
+<!-- ランダムに浮かび上がる研究所ポップアップ（世界観演出のみ） -->
+<div id="ai-toast" class="ai-toast hidden"></div>
+
+<!-- アルゴリズム解説モーダル -->
+<div id="algo-modal" class="modal-overlay hidden">
+  <div class="modal-box crt-frame">
+    <button id="algo-modal-close" class="modal-close" aria-label="閉じる">✕</button>
+    <p class="eyebrow">AI DATABASE - ALGORITHM GUIDE</p>
+    <h3 class="algo-heading">DFS（深さ優先探索）</h3>
+    <p class="algo-desc">一本道を最後まで進んでから戻る探し方です。迷路で行き止まりまで進む人に近い考え方です。</p>
+    <h3 class="algo-heading">BFS（幅優先探索）</h3>
+    <p class="algo-desc">近い場所から順番に広く探します。最短ルートを見つけるのが得意です。</p>
+    <h3 class="algo-heading">線形探索</h3>
+    <p class="algo-desc">最初から順番に一つずつ確認していく方法です。確実ですが時間がかかることがあります。</p>
+    <h3 class="algo-heading small">今回あなたがこのタイプだった理由</h3>
+    <ul id="algo-why-list" class="algo-why-list"></ul>
   </div>
 </div>
 
@@ -50,6 +87,7 @@
       <div class="title-buttons">
         <button id="btn-start" class="pixel-btn primary">START</button>
         <button id="btn-howto" class="pixel-btn">遊び方</button>
+        <button id="btn-title-history" class="pixel-btn">【みんなの履歴】</button>
       </div>
       <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.1.0</p>
     </div>
@@ -124,12 +162,17 @@
        画面4：解析演出（クリア直後）
   ============================================================ -->
   <section id="screen-analyzing" class="screen">
-    <div class="analyzing-wrap">
+    <div class="analyzing-wrap" id="analyzing-progress-wrap">
       <p id="analyzing-line" class="analyzing-line">データ収集中...</p>
       <div class="progress-outer">
         <div id="progress-bar" class="progress-inner"></div>
       </div>
       <p id="analyzing-percent" class="analyzing-percent">0%</p>
+    </div>
+    <div class="analyzing-reveal hidden" id="analyzing-reveal">
+      <p class="reveal-line" id="reveal-line-1">あなたはAI研究所の被験者でした。</p>
+      <p class="reveal-line reveal-sub" id="reveal-line-2">MISSION COMPLETE</p>
+      <p class="reveal-line reveal-sub" id="reveal-line-3">Behavior Analysis Finished</p>
     </div>
   </section>
 
@@ -162,6 +205,15 @@
             <span id="pct-linear" class="aptitude-pct">0%</span>
           </div>
         </div>
+
+        <!-- みんなとの比較 -->
+        <h3 class="panel-title small">みんなとの比較</h3>
+        <div class="compare-block" id="compare-block">
+          <div class="compare-row"><span class="compare-label">DFS</span><span id="compare-dfs" class="compare-text">―</span></div>
+          <div class="compare-row"><span class="compare-label">BFS</span><span id="compare-bfs" class="compare-text">―</span></div>
+          <div class="compare-row"><span class="compare-label">線形探索</span><span id="compare-linear" class="compare-text">―</span></div>
+        </div>
+        <button id="btn-algo-info" class="pixel-btn small-btn">アルゴリズム解説</button>
 
         <!-- 数値スタッツ -->
         <div class="stat-grid">
@@ -252,10 +304,13 @@
         <h3 class="panel-title small">探索率ランキング（上位10件）</h3>
         <ol id="stats-exploration-ranking" class="ranking-list"></ol>
 
+        <h3 class="panel-title small">最新の記録（20件）</h3>
+        <ol id="stats-recent-list" class="ranking-list recent-list"></ol>
+
         <p class="howto-hint">※ この統計は今お使いの端末（ブラウザ）に保存された記録の集計です。</p>
 
         <div class="result-buttons">
-          <button id="btn-stats-back" class="pixel-btn">結果へもどる</button>
+          <button id="btn-stats-back" class="pixel-btn">もどる</button>
           <button id="btn-stats-title" class="pixel-btn">タイトルへ</button>
         </div>
       </div>

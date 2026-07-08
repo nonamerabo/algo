@@ -401,21 +401,98 @@ const Analyzer = {
   },
   COMMENT_POOL: {
     D: [
+      // 初心者向け
       "未知の道を最後まで探索する傾向があります。",
+      "一度決めた道を、行けるところまで進んでみるタイプです。",
+      "気になった道はとりあえず最後まで確かめてみたくなるようです。",
+      // 研究者風
       "一度決めた道を最後まで調べるタイプです。",
+      "分岐点での「引き返す」選択が極めて少なく、深さ優先の傾向が顕著に観測されました。",
+      "探索木を深く潜る挙動が支配的で、典型的なスタック型探索者と分類されます。",
+      // AI口調
+      "Subject exhibits deep-first traversal bias. パターン一致：DFS型。",
+      "行動ログ解析の結果、後戻りより前進を優先する意思決定が確認されました。",
+      "AIはあなたの探索を「一直線タイプ」と判定しました。",
+      // ユーモア
       "行き止まりを恐れず、奥へ奥へと進んでいく探検家気質です。",
+      "「とりあえず行けるとこまで行ってみよう」精神の持ち主のようです。",
+      "迷路の奥地で「あれ、ここ来たことある気が…」と思ったこと、ありませんか？",
+      "戻るボタンより前に進むボタンを連打するタイプかもしれません。",
+      // RPG風
+      "勇者は迷わず最奥を目指す――そんな冒険心を感じる探索でした。",
+      "ダンジョンの奥深くまで足を踏み入れる、生粋の冒険者タイプです。",
+      "一本道の果てにこそ真実がある、と信じて突き進んだようですね。",
+      "未踏の地への恐れより好奇心が勝る、探検家の魂を持っています。",
+      "行き止まりすら「次の冒険への布石」と捉える前向きさが見えました。",
+      "地図を描くより、まず自分の足で確かめたい性格のようです。",
+      "深く潜れば潜るほど燃えるタイプ、と分析されました。",
+      "「戻る」より「進む」を選び続けた、まっすぐな探索者です。",
+      "行き止まりに何度も出会っても、へこたれない粘り強さを感じます。",
+      "迷路の奥の奥まで、好奇心のままに歩き続けたようです。",
     ],
     B: [
+      // 初心者向け
       "周囲を広く確認してから進む傾向があります。",
+      "近い場所から順番にバランスよく調べていくタイプです。",
+      "遠回りが少なく、効率的にゴールへ近づいていました。",
+      // 研究者風
       "効率良く最短経路を探すことが得意です。",
+      "移動経路と最短経路の乖離が小さく、幅優先探索的な意思決定が観測されました。",
+      "同じマスへの再訪が少なく、無駄のない探索アルゴリズムに近い挙動です。",
+      // AI口調
+      "Subject exhibits breadth-first optimization. パターン一致：BFS型。",
+      "AIの計測では、最短ルートとの差分が全体の中でも小さいグループに分類されました。",
+      "行動データは「最短経路志向」の特徴と高い一致率を示しました。",
+      // ユーモア
       "無駄のないルート選びで、ゴールまで最短距離を描き出します。",
+      "地図がなくても最短距離の感覚を持っているタイプかもしれません。",
+      "「無駄な動きはしたくない」というこだわりが伝わってきます。",
+      "気づけば最短ルートを歩いていた…そんな効率派です。",
+      // RPG風
+      "冒険にも段取りが大事、とわきまえた賢者タイプの探索でした。",
+      "最短ルートを見抜く「先読みの目」を持つ探検家です。",
+      "遠回りをせず、まっすぐゴールを見据えて進む姿勢が印象的でした。",
+      "地形を俯瞰するように、効率よく道を選び取っていました。",
+      "戦略的に行動する参謀タイプ、と分析されました。",
+      "無駄な戦闘（寄り道）を避ける、堅実な冒険者です。",
+      "最短距離を見極める勘の良さが数値にも表れています。",
+      "経験豊富な冒険者のような、無駄のない足取りでした。",
+      "地図を頭の中に描きながら進む、計画派の探索者です。",
     ],
     L: [
+      // 初心者向け
       "一つずつ丁寧に確認する慎重派です。",
+      "順番通りにコツコツ調べていくタイプです。",
+      "焦らずじっくり進む、落ち着いた探索スタイルでした。",
+      // 研究者風
       "順序立てて、着実に道を調べていくタイプです。",
+      "分岐での選択が一定の順序パターンに従っており、線形探索的な規則性が確認されました。",
+      "同じ手順を繰り返す挙動が多く観測され、逐次確認型の探索者と分類されます。",
+      // AI口調
+      "Subject exhibits sequential scanning behavior. パターン一致：線形探索型。",
+      "AIの分析では、選択パターンの再現性が高いことが特徴として抽出されました。",
+      "行動ログは「一つずつ確実に」という一貫した傾向を示しています。",
+      // ユーモア
       "焦らず一手ずつ、確実に選択肢をつぶしていく職人肌です。",
+      "「とりあえず全部見てから決めよう」という慎重さが光ります。",
+      "近道より、確実な道を選ぶタイプのようです。",
+      "石橋を叩いて渡る…いや、叩いて確認してから渡るタイプです。",
+      // RPG風
+      "一歩ずつ確実に、着実に前進する堅実な冒険者です。",
+      "焦らず騒がず、順序立てて謎を解き明かすタイプでした。",
+      "地道な探索の積み重ねこそ真の強さ、と体現するような足取りです。",
+      "確実性を重んじる、職人肌の冒険者と評価されました。",
+      "一つ一つの選択を丁寧に積み重ねる、堅実な探索者です。",
+      "急がば回れ、を体現するような着実な歩みでした。",
+      "慎重さこそ最大の武器、と言わんばかりの探索スタイルです。",
+      "順番を守り、抜け漏れなく調べ尽くす几帳面さが伝わります。",
     ],
-    X: ["DFS・BFS・線形探索、すべての思考を兼ね備えた稀有なタイプです。"],
+    X: [
+      "DFS・BFS・線形探索、すべての思考を兼ね備えた稀有なタイプです。",
+      "AIの分析でも判定に迷うほど、バランスの取れた探索者です。",
+      "状況に応じて探索スタイルを切り替える、柔軟な思考の持ち主です。",
+      "一つの型にとらわれない、万能型のアルゴリズム適性が確認されました。",
+    ],
   },
 
   /** @param {PlayerController} player */
@@ -457,6 +534,9 @@ const Analyzer = {
       commentIndex,
       title: this.TITLE_POOL[typeCode][titleIndex],
       comment: this.COMMENT_POOL[typeCode][commentIndex],
+      reasons: this._buildReasons(typeCode, {
+        deadEndRatio, unexploredRatio, systematicRatio, revisitRatio, diffRatio, explorationRate,
+      }),
       stats: {
         totalSteps: player.totalSteps,
         idealSteps,
@@ -465,6 +545,28 @@ const Analyzer = {
         elapsedSeconds: Math.round(player.elapsedSeconds),
       },
     };
+  },
+
+  /** 「なぜこのタイプだったのか」をプレイ内容の数値に基づいて説明する短文リストを作る */
+  _buildReasons(typeCode, r) {
+    const reasons = [];
+    if (typeCode === "D") {
+      reasons.push(`行き止まりまで進んだ割合が高めでした（目安 ${Math.round(r.deadEndRatio * 100)}%）。`);
+      reasons.push(`未探索の道を優先して選ぶ傾向が見られました（${Math.round(r.unexploredRatio * 100)}%）。`);
+      if (r.revisitRatio > 0.15) reasons.push("探索済みの道へ戻る回数もやや多めでした。");
+    } else if (typeCode === "B") {
+      reasons.push(`最短ルートとの差が小さめでした（最短より約${Math.max(0, Math.round(r.diffRatio * 100))}%増）。`);
+      reasons.push(`探索済みへ戻る回数が少なく、無駄のない移動が多く見られました。`);
+      if (r.explorationRate < 60) reasons.push("必要以上に広く探索せず、効率を優先していました。");
+    } else if (typeCode === "L") {
+      reasons.push(`分岐で最初の選択肢を選ぶ割合が高めでした（${Math.round(r.systematicRatio * 100)}%）。`);
+      reasons.push("未探索より、決まった順番を優先する傾向が見られました。");
+      if (r.revisitRatio > 0.1) reasons.push("同じ場所を何度か確認しながら進んでいました。");
+    } else {
+      reasons.push("DFS・BFS・線形探索、どの傾向にも大きく偏らないバランス型でした。");
+      reasons.push("状況に応じて選び方を変えているような、柔軟な移動パターンが見られました。");
+    }
+    return reasons;
   },
 
   /** typeCode + variant番号から称号・コメントを復元する（QRカード表示用） */
@@ -546,15 +648,23 @@ class StorageManager {
         totalPlayers: 0,
         avgTime: 0,
         avgSteps: 0,
+        avgDfs: 0,
+        avgBfs: 0,
+        avgLinear: 0,
         typeRatio: { D: 0, B: 0, L: 0, X: 0 },
         titleRanking: [],
         fastestRanking: [],
         explorationRanking: [],
+        recentRecords: [],
       };
     }
     const totalPlayers = all.length;
     const avgTime = all.reduce((s, r) => s + r.elapsedSeconds, 0) / totalPlayers;
     const avgSteps = all.reduce((s, r) => s + r.steps, 0) / totalPlayers;
+    const avgDfs = all.reduce((s, r) => s + (r.dfsScore || 0), 0) / totalPlayers;
+    const avgBfs = all.reduce((s, r) => s + (r.bfsScore || 0), 0) / totalPlayers;
+    const avgLinear = all.reduce((s, r) => s + (r.linearScore || 0), 0) / totalPlayers;
+    const recentRecords = [...all].reverse().slice(0, 20);
 
     const typeCounts = { D: 0, B: 0, L: 0, X: 0 };
     all.forEach((r) => { typeCounts[r.typeCode] = (typeCounts[r.typeCode] || 0) + 1; });
@@ -573,7 +683,94 @@ class StorageManager {
     const fastestRanking = [...all].sort((a, b) => a.elapsedSeconds - b.elapsedSeconds).slice(0, 10);
     const explorationRanking = [...all].sort((a, b) => b.explorationRate - a.explorationRate).slice(0, 10);
 
-    return { totalPlayers, avgTime, avgSteps, typeRatio, titleRanking, fastestRanking, explorationRanking };
+    return {
+      totalPlayers, avgTime, avgSteps, avgDfs, avgBfs, avgLinear,
+      typeRatio, titleRanking, fastestRanking, explorationRanking, recentRecords,
+    };
+  }
+}
+
+
+/* ================================================================
+   LogManager
+   ----------------------------------------------------------------
+   「研究所らしさ」の演出だけを担当するクラス。ゲームの判定・スコア
+   には一切影響しない。画面隅の常時ログ表示（ティッカー）と、
+   ランダムに浮かぶポップアップ（トースト）の2種類を管理する。
+================================================================ */
+class LogManager {
+  constructor() {
+    this.tickerMessages = [
+      "Collecting Data...",
+      "Analyzing Behavior...",
+      "Behavior Recording...",
+      "Unknown Pattern Detected...",
+      "Branch Decision Logged...",
+      "Exploration Data Saved...",
+      "Tracking Movement Vector...",
+      "Decision Tree Updating...",
+      "Pathfinding Signature Captured...",
+      "Subject Response Logged...",
+      "Cross-referencing Dataset...",
+      "Behavioral Model Syncing...",
+      "Anomaly Score Calculating...",
+      "Sampling Interval OK...",
+      "Node Traversal Logged...",
+      "Cognitive Pattern Sampling...",
+    ];
+    this.toastMessages = [
+      "行動記録更新",
+      "探索率解析中",
+      "未知パターン検出",
+      "思考モデル更新",
+      "AI学習完了",
+      "データ同期中",
+      "研究ログ保存",
+      "分岐選択を記録",
+      "被験者データ照合中",
+    ];
+    this.tickerHandle = null;
+    this.toastHandle = null;
+  }
+
+  start() {
+    this.stop();
+    const tickerEl = document.getElementById("lab-log-ticker");
+    if (tickerEl) tickerEl.classList.remove("hidden");
+    this._tickTicker();
+    this.tickerHandle = setInterval(() => this._tickTicker(), 2600 + randInt(2200));
+    this._scheduleToast();
+  }
+
+  stop() {
+    if (this.tickerHandle) clearInterval(this.tickerHandle);
+    if (this.toastHandle) clearTimeout(this.toastHandle);
+    this.tickerHandle = null;
+    this.toastHandle = null;
+    const tickerEl = document.getElementById("lab-log-ticker");
+    if (tickerEl) tickerEl.classList.add("hidden");
+    const toastEl = document.getElementById("ai-toast");
+    if (toastEl) toastEl.classList.remove("show");
+  }
+
+  _tickTicker() {
+    const el = document.getElementById("lab-log-text");
+    if (el) el.textContent = pickRandom(this.tickerMessages);
+  }
+
+  _scheduleToast() {
+    this.toastHandle = setTimeout(() => {
+      this._showToast();
+      this._scheduleToast();
+    }, 6000 + randInt(6000));
+  }
+
+  _showToast() {
+    const el = document.getElementById("ai-toast");
+    if (!el) return;
+    el.textContent = pickRandom(this.toastMessages);
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 1800);
   }
 }
 
@@ -1253,10 +1450,40 @@ class UIManager {
           line.textContent = "解析完了";
           bar.style.width = "100%";
           percentText.textContent = "100%";
-          setTimeout(resolve, 400);
+          setTimeout(() => this._playRevealSequence().then(resolve), 500);
         }
       };
       requestAnimationFrame(tick);
+    });
+  }
+
+  /** 解析完了後の「暗転→告白」エンディング演出 */
+  _playRevealSequence() {
+    return new Promise((resolve) => {
+      const progressWrap = document.getElementById("analyzing-progress-wrap");
+      const reveal = document.getElementById("analyzing-reveal");
+      const lineIds = ["reveal-line-1", "reveal-line-2", "reveal-line-3"];
+
+      lineIds.forEach((id) => document.getElementById(id).classList.remove("reveal-show"));
+      progressWrap.style.opacity = "0";
+
+      setTimeout(() => {
+        reveal.classList.remove("hidden");
+        void reveal.offsetWidth;
+        reveal.classList.add("show");
+        lineIds.forEach((id, i) => {
+          setTimeout(() => document.getElementById(id).classList.add("reveal-show"), 300 + i * 500);
+        });
+      }, 350);
+
+      setTimeout(() => {
+        reveal.classList.remove("show");
+        setTimeout(() => {
+          reveal.classList.add("hidden");
+          progressWrap.style.opacity = "";
+          resolve();
+        }, 500);
+      }, 2700);
     });
   }
 }
@@ -1294,6 +1521,23 @@ class ResultRenderer {
     Renderer.drawRoute(document.getElementById("route-canvas-player"), maze, player.path, "#4deeea");
     Renderer.drawRoute(document.getElementById("route-canvas-shortest"), maze, shortestPath, "#ffce54");
     Renderer.drawRoute(document.getElementById("route-canvas-dfs"), maze, dfsPath, "#ff2e6d");
+  }
+
+  /** 「みんなとの比較」行を描画する */
+  renderComparison(record, aggStats) {
+    this._renderCompareRow("compare-dfs", record.dfsScore, aggStats.avgDfs);
+    this._renderCompareRow("compare-bfs", record.bfsScore, aggStats.avgBfs);
+    this._renderCompareRow("compare-linear", record.linearScore, aggStats.avgLinear);
+  }
+  _renderCompareRow(elementId, myScore, avgScoreRaw) {
+    const el = document.getElementById(elementId);
+    const avgScore = Math.round(avgScoreRaw || 0);
+    const diff = myScore - avgScore;
+    let diffText;
+    if (Math.abs(diff) < 1) diffText = "みんなの平均とほぼ同じです";
+    else if (diff > 0) diffText = `平均より${diff}%高いです`;
+    else diffText = `平均より${Math.abs(diff)}%低いです`;
+    el.textContent = `あなた ${myScore}% ／ みんな ${avgScore}% ／ ${diffText}`;
   }
 
   _animateBar(barId, pctId, value) {
@@ -1355,6 +1599,13 @@ class ResultRenderer {
       stats.explorationRanking,
       (item) => `<span class="rank-name">${item.pid ? "被験者" + item.pid : "被験者"}（${item.title}）</span><span class="rank-value">${item.explorationRate}%</span>`
     );
+
+    const typeLabel = { D: "DFS", B: "BFS", L: "線形探索", X: "オールラウンド" };
+    this._renderRankingList(
+      "stats-recent-list",
+      stats.recentRecords,
+      (item) => `<span class="rank-name">被験者${item.pid || "----"}（${item.title} / ${typeLabel[item.typeCode] || "?"}）</span><span class="rank-value">${formatTime(item.elapsedSeconds)}・${item.steps}歩</span>`
+    );
   }
 
   _renderRankingList(elementId, items, lineBuilder) {
@@ -1382,6 +1633,11 @@ class GameManager {
     this.ui = new UIManager();
     this.storage = new StorageManager();
     this.resultRenderer = new ResultRenderer();
+    this.log = new LogManager();
+
+    this._statsBackTarget = "screen-result";
+    this._lastActivityAt = Date.now();
+    this.EXHIBIT_IDLE_MS = 30000;
 
     this.maze = null;
     this.player = null;
@@ -1407,14 +1663,23 @@ class GameManager {
     document.getElementById("btn-title").addEventListener("click", () => {
       this.ui.hideLabBadge();
       this.ui.hideRec();
+      this.log.stop();
       this.ui.showScreen("screen-title");
     });
-    document.getElementById("btn-stats").addEventListener("click", () => this.showStats());
-    document.getElementById("btn-stats-back").addEventListener("click", () => this.ui.showScreen("screen-result"));
+    document.getElementById("btn-stats").addEventListener("click", () => this.showStats("screen-result"));
+    document.getElementById("btn-title-history").addEventListener("click", () => this.showStats("screen-title"));
+    document.getElementById("btn-stats-back").addEventListener("click", () => this.ui.showScreen(this._statsBackTarget));
     document.getElementById("btn-stats-title").addEventListener("click", () => {
       this.ui.hideLabBadge();
       this.ui.hideRec();
+      this.log.stop();
       this.ui.showScreen("screen-title");
+    });
+
+    document.getElementById("btn-algo-info").addEventListener("click", () => this._showAlgoModal());
+    document.getElementById("algo-modal-close").addEventListener("click", () => this._hideAlgoModal());
+    document.getElementById("algo-modal").addEventListener("click", (e) => {
+      if (e.target.id === "algo-modal") this._hideAlgoModal();
     });
 
     window.addEventListener("keydown", (e) => this._handleKey(e));
@@ -1425,11 +1690,62 @@ class GameManager {
     });
 
     window.addEventListener("resize", () => this._resizeCanvases());
+
+    this._setupExhibitMode();
+  }
+
+  /* --------------------------------------------------------------
+     アルゴリズム解説モーダル
+  -------------------------------------------------------------- */
+  _showAlgoModal() {
+    const listEl = document.getElementById("algo-why-list");
+    const reasons = (this.lastRecord && this.lastRecord.reasons) || [];
+    listEl.innerHTML = reasons.length
+      ? reasons.map((r) => `<li>${r}</li>`).join("")
+      : "<li>診断データがまだありません。まずはゲームをクリアしてみましょう。</li>";
+    document.getElementById("algo-modal").classList.remove("hidden");
+  }
+  _hideAlgoModal() {
+    document.getElementById("algo-modal").classList.add("hidden");
+  }
+
+  /* --------------------------------------------------------------
+     展示モード：一定時間操作が無ければ自動でタイトルへ戻す。
+     診断履歴の保存には影響しない（保存はクリア時点で既に完了している）。
+  -------------------------------------------------------------- */
+  _setupExhibitMode() {
+    const markActivity = () => { this._lastActivityAt = Date.now(); };
+    window.addEventListener("keydown", markActivity);
+    window.addEventListener("pointerdown", markActivity);
+    window.addEventListener("touchstart", markActivity, { passive: true });
+
+    setInterval(() => {
+      const idleFor = Date.now() - this._lastActivityAt;
+      const onTitle = document.getElementById("screen-title").classList.contains("active");
+      if (onTitle) {
+        document.body.classList.toggle("idle-pulse", idleFor > this.EXHIBIT_IDLE_MS);
+        return;
+      }
+      if (idleFor > this.EXHIBIT_IDLE_MS) {
+        this.inputLocked = true;
+        this._stopTimer();
+        this.log.stop();
+        this.ui.hideLabBadge();
+        this.ui.hideRec();
+        this._hideAlgoModal();
+        this.ui.showScreen("screen-title");
+        this._lastActivityAt = Date.now();
+      }
+    }, 3000);
   }
 
   startNewGame() {
+    // START / 最初から遊ぶ / リスタート のたびに新しい被験者No.を発行する
+    this.subjectId = generateSubjectId();
     this.ui.showLabBadge(this.subjectId);
     this.ui.setRecRecording();
+    this.log.start();
+    this._lastActivityAt = Date.now();
 
     this.maze = new MazeGenerator(this.COLS, this.ROWS);
     this.player = new PlayerController(this.maze);
@@ -1538,6 +1854,7 @@ class GameManager {
     this.inputLocked = true;
     this.player.stopClock();
     this._stopTimer();
+    this.log.stop();
     await this.ui.playAnalyzingSequence();
     this.ui.setRecStopped();
     await this._buildAndShowResult();
@@ -1563,6 +1880,7 @@ class GameManager {
       explorationRate: analysis.stats.explorationRate,
       elapsedSeconds: analysis.stats.elapsedSeconds,
       timestamp: Date.now(),
+      reasons: analysis.reasons,
     };
     this.lastRecord = record;
 
@@ -1570,6 +1888,10 @@ class GameManager {
     await this.storage.saveResult(record);
 
     this.resultRenderer.renderResult(record, this.maze, this.player);
+
+    // みんなの平均との比較（歴代データが無い＝自分が1人目の場合も自然に表示されるようにする）
+    const aggStats = await this.storage.getAggregateStats();
+    this.resultRenderer.renderComparison(record, aggStats);
 
     const cardUrl = QRManager.buildCardUrl(record);
     QRManager.renderInto(
@@ -1581,7 +1903,8 @@ class GameManager {
     this.ui.showScreen("screen-result");
   }
 
-  async showStats() {
+  async showStats(fromScreen) {
+    this._statsBackTarget = fromScreen === "screen-title" ? "screen-title" : "screen-result";
     const stats = await this.storage.getAggregateStats();
     this.resultRenderer.renderStats(stats);
     this.ui.showScreen("screen-stats");
@@ -1627,9 +1950,63 @@ class GameManager {
 
 
 /* ================================================================
+   起動画面（SYSTEM BOOT）
+   ----------------------------------------------------------------
+   初回アクセス時のみ、約3秒のフェイク起動シーケンスを表示する。
+   2回目以降のアクセスでは、このブロックを丸ごとスキップする。
+================================================================ */
+const BOOT_SEEN_KEY = "algo_lab_boot_seen_v1";
+
+function runBootSequence() {
+  return new Promise((resolve) => {
+    const bootEl = document.getElementById("screen-boot");
+    if (!bootEl) return resolve();
+
+    let seen = false;
+    try { seen = localStorage.getItem(BOOT_SEEN_KEY) === "1"; } catch (e) { /* 無視 */ }
+    if (seen) {
+      bootEl.classList.add("boot-gone");
+      return resolve();
+    }
+
+    const lines = ["boot-l1", "boot-l2", "boot-l3"];
+    lines.forEach((id, i) => {
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add("boot-show");
+      }, 250 + i * 380);
+    });
+
+    setTimeout(() => {
+      const bar = document.getElementById("boot-bar");
+      if (bar) bar.style.width = "100%";
+    }, 300);
+
+    setTimeout(() => {
+      const complete = document.getElementById("boot-l4");
+      const welcome = document.getElementById("boot-l5");
+      if (complete) complete.classList.add("boot-show");
+      if (welcome) welcome.classList.add("boot-show");
+    }, 2300);
+
+    setTimeout(() => {
+      bootEl.classList.add("boot-hidden");
+      try { localStorage.setItem(BOOT_SEEN_KEY, "1"); } catch (e) { /* 無視 */ }
+      setTimeout(() => {
+        bootEl.classList.add("boot-gone");
+        resolve();
+      }, 800);
+    }, 3000);
+  });
+}
+
+
+/* ================================================================
    初期化処理
 ================================================================ */
 window.addEventListener("DOMContentLoaded", async () => {
+  await runBootSequence();
+
   const game = new GameManager();
   game.init();
   // QRコード経由でアクセスされた場合は診断カード画面を直接表示する
