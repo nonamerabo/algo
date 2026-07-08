@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Algorithm Research Lab ～AIがあなたの思考を解析します～</title>
+
+<!-- ドット絵/8bit風フォント（読み込めない場合はCSS側でmonospaceにフォールバック） -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ========================================================
+     観察演出用オーバーレイ（常時最前面。CRTスキャンラインとRECランプ）
+     ゲームクリア後に「実は見られていた」感を強めるための仕掛け
+======================================================== -->
+<div id="crt-overlay" aria-hidden="true">
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+  <div id="rec-indicator" class="hidden">
+    <span id="rec-dot" class="rec-dot"></span><span id="rec-text" class="rec-text">REC ● OBSERVING</span>
+  </div>
+</div>
+
+<!-- ラボの実験番号（雰囲気演出。JSでランダムな被験者IDを差し込む） -->
+<div id="lab-id-badge" class="hidden">SUBJECT <span id="lab-id-number">----</span></div>
+
+<main id="app">
+
+  <!-- ============================================================
+       画面1：タイトル画面
+  ============================================================ -->
+  <section id="screen-title" class="screen active">
+    <div class="crt-frame title-frame">
+      <p class="eyebrow">AI RESEARCH FACILITY - SECTOR 7</p>
+      <h1 class="game-title">
+        ALGORITHM<br/>RESEARCH LAB
+      </h1>
+      <p class="game-subtitle">AIがあなたの思考を解析します</p>
+      <p class="recruit-tag">「被験者募集中」</p>
+
+      <div class="title-flavor">
+        <p>『ダンジョンで宝を探すゲーム』</p>
+        <p class="small-note">――あなたはただ、宝を探すだけでいい。</p>
+      </div>
+
+      <div class="title-buttons">
+        <button id="btn-start" class="pixel-btn primary">START</button>
+        <button id="btn-howto" class="pixel-btn">遊び方</button>
+      </div>
+      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.1.0</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       画面2：遊び方
+  ============================================================ -->
+  <section id="screen-howto" class="screen">
+    <div class="crt-frame howto-frame">
+      <h2 class="panel-title">遊び方</h2>
+      <ul class="howto-list">
+        <li><span class="key-badge">↑↓←→</span> または <span class="key-badge">W A S D</span> でキャラクターを動かします。</li>
+        <li>ダンジョンの中にある <span class="hl-treasure">宝箱</span> を見つけましょう。</li>
+        <li>宝箱を見つけたら <span class="hl-goal">ゴール地点</span> を目指してください。</li>
+        <li>プレイ時間の目安は 3〜5分 です。じっくり探しても、まっすぐ進んでもOK！</li>
+        <li>スマホ・タブレットの場合は画面下の矢印ボタンでも操作できます。</li>
+      </ul>
+      <p class="howto-hint">※ クリア後、あなたの探索の仕方から「思考のクセ」を分析します。</p>
+      <button id="btn-howto-back" class="pixel-btn">もどる</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       画面3：ゲーム本編
+  ============================================================ -->
+  <section id="screen-game" class="screen">
+    <div class="game-hud">
+
+      <!-- 左上：タイマー・歩数 -->
+      <div class="hud-panel hud-topleft">
+        <div class="hud-row"><span class="hud-label">TIME</span><span id="hud-timer" class="hud-value">00:00</span></div>
+        <div class="hud-row"><span class="hud-label">STEPS</span><span id="hud-steps" class="hud-value">0</span></div>
+      </div>
+
+      <!-- 右上：ミニマップ -->
+      <div class="hud-panel hud-topright">
+        <span class="hud-label minimap-label">MINI MAP</span>
+        <canvas id="minimap-canvas" width="120" height="120"></canvas>
+      </div>
+
+      <!-- 中央：ダンジョン本体 -->
+      <div class="dungeon-wrap">
+        <canvas id="dungeon-canvas"></canvas>
+        <div id="floating-message" class="floating-message hidden"></div>
+      </div>
+
+      <!-- 右下：現在のミッション -->
+      <div class="hud-panel hud-bottomright">
+        <span class="hud-label">MISSION</span>
+        <p id="hud-mission" class="mission-text">宝箱を見つけよう</p>
+        <!-- 宝箱の取得状況を誰が見ても一目で分かるようにするバッジ -->
+        <div id="treasure-badge" class="treasure-badge">
+          <span class="treasure-icon" aria-hidden="true"></span>
+          <span id="treasure-badge-text" class="treasure-badge-text">宝箱：未取得</span>
+        </div>
+      </div>
+      <!-- 宝箱取得時のポップアップ演出 -->
+      <div id="treasure-popup" class="treasure-popup hidden">宝箱を入手しました！</div>
+
+      <!-- モバイル向け方向ボタン -->
+      <div class="dpad" id="dpad">
+        <button class="dpad-btn dpad-up" data-dir="up" aria-label="上">▲</button>
+        <button class="dpad-btn dpad-left" data-dir="left" aria-label="左">◀</button>
+        <button class="dpad-btn dpad-down" data-dir="down" aria-label="下">▼</button>
+        <button class="dpad-btn dpad-right" data-dir="right" aria-label="右">▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       画面4：解析演出（クリア直後）
+  ============================================================ -->
+  <section id="screen-analyzing" class="screen">
+    <div class="analyzing-wrap">
+      <p id="analyzing-line" class="analyzing-line">データ収集中...</p>
+      <div class="progress-outer">
+        <div id="progress-bar" class="progress-inner"></div>
+      </div>
+      <p id="analyzing-percent" class="analyzing-percent">0%</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       画面5：診断結果画面
+  ============================================================ -->
+  <section id="screen-result" class="screen">
+    <div class="result-scroll">
+      <div class="crt-frame result-frame">
+
+        <p class="eyebrow">解析完了 - ANALYSIS REPORT</p>
+        <h2 id="result-title" class="result-title">冒険家</h2>
+        <p id="result-ai-comment" class="ai-comment">――</p>
+
+        <!-- 適性グラフ -->
+        <div class="aptitude-block">
+          <div class="aptitude-row">
+            <span class="aptitude-label">DFS適性</span>
+            <div class="bar-track"><div id="bar-dfs" class="bar-fill bar-dfs"></div></div>
+            <span id="pct-dfs" class="aptitude-pct">0%</span>
+          </div>
+          <div class="aptitude-row">
+            <span class="aptitude-label">BFS適性</span>
+            <div class="bar-track"><div id="bar-bfs" class="bar-fill bar-bfs"></div></div>
+            <span id="pct-bfs" class="aptitude-pct">0%</span>
+          </div>
+          <div class="aptitude-row">
+            <span class="aptitude-label">線形探索適性</span>
+            <div class="bar-track"><div id="bar-linear" class="bar-fill bar-linear"></div></div>
+            <span id="pct-linear" class="aptitude-pct">0%</span>
+          </div>
+        </div>
+
+        <!-- 数値スタッツ -->
+        <div class="stat-grid">
+          <div class="stat-box"><span class="stat-k">クリアタイム</span><span id="stat-time" class="stat-v">00:00</span></div>
+          <div class="stat-box"><span class="stat-k">歩数</span><span id="stat-steps" class="stat-v">0</span></div>
+          <div class="stat-box"><span class="stat-k">最短との差</span><span id="stat-diff" class="stat-v">+0</span></div>
+          <div class="stat-box"><span class="stat-k">探索率</span><span id="stat-rate" class="stat-v">0%</span></div>
+        </div>
+
+        <!-- ルート比較（キャンバス3枚） -->
+        <h3 class="panel-title small">ルート比較</h3>
+        <div class="route-compare">
+          <div class="route-box">
+            <p class="route-caption">あなたの探索ルート</p>
+            <canvas id="route-canvas-player" class="route-canvas"></canvas>
+          </div>
+          <div class="route-box">
+            <p class="route-caption">最短ルート（BFS）</p>
+            <canvas id="route-canvas-shortest" class="route-canvas"></canvas>
+          </div>
+          <div class="route-box">
+            <p class="route-caption">DFSならこう進む</p>
+            <canvas id="route-canvas-dfs" class="route-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- QRコード -->
+        <h3 class="panel-title small">診断カードをスマホで見る</h3>
+        <div class="qr-block">
+          <div id="qr-canvas-wrap" class="qr-canvas-wrap"></div>
+          <p class="qr-caption">QRコードを読み取ると、あなたの診断カードが表示されます</p>
+          <p id="qr-fallback-url" class="qr-fallback hidden"></p>
+        </div>
+
+        <div class="result-buttons">
+          <button id="btn-retry" class="pixel-btn primary">もう一度実験する</button>
+          <button id="btn-stats" class="pixel-btn">みんなの統計を見る</button>
+          <button id="btn-title" class="pixel-btn">タイトルへ</button>
+        </div>
+        <p class="footer-note">Subject ID: <span id="result-subject-id">------</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       画面6：みんなの統計ページ
+       StorageManager が集計したこれまでの記録を表示する。
+       将来オンライン化する場合もこの画面の描画部分（ResultRenderer）
+       だけを差し替えれば対応できるように設計している。
+  ============================================================ -->
+  <section id="screen-stats" class="screen">
+    <div class="result-scroll">
+      <div class="crt-frame result-frame">
+        <p class="eyebrow">LAB DATABASE - ALL SUBJECTS</p>
+        <h2 class="panel-title">みんなの統計</h2>
+
+        <div class="stat-grid stats-summary">
+          <div class="stat-box"><span class="stat-k">歴代プレイ人数</span><span id="stats-total-players" class="stat-v">0</span></div>
+          <div class="stat-box"><span class="stat-k">平均クリア時間</span><span id="stats-avg-time" class="stat-v">00:00</span></div>
+          <div class="stat-box"><span class="stat-k">平均歩数</span><span id="stats-avg-steps" class="stat-v">0</span></div>
+        </div>
+
+        <h3 class="panel-title small">タイプ割合</h3>
+        <div class="aptitude-block">
+          <div class="aptitude-row">
+            <span class="aptitude-label">DFSタイプ</span>
+            <div class="bar-track"><div id="stats-bar-dfs" class="bar-fill bar-dfs"></div></div>
+            <span id="stats-pct-dfs" class="aptitude-pct">0%</span>
+          </div>
+          <div class="aptitude-row">
+            <span class="aptitude-label">BFSタイプ</span>
+            <div class="bar-track"><div id="stats-bar-bfs" class="bar-fill bar-bfs"></div></div>
+            <span id="stats-pct-bfs" class="aptitude-pct">0%</span>
+          </div>
+          <div class="aptitude-row">
+            <span class="aptitude-label">線形探索タイプ</span>
+            <div class="bar-track"><div id="stats-bar-linear" class="bar-fill bar-linear"></div></div>
+            <span id="stats-pct-linear" class="aptitude-pct">0%</span>
+          </div>
+        </div>
+
+        <h3 class="panel-title small">称号ランキング</h3>
+        <ol id="stats-title-ranking" class="ranking-list"></ol>
+
+        <h3 class="panel-title small">最短クリアランキング（上位10件）</h3>
+        <ol id="stats-fastest-ranking" class="ranking-list"></ol>
+
+        <h3 class="panel-title small">探索率ランキング（上位10件）</h3>
+        <ol id="stats-exploration-ranking" class="ranking-list"></ol>
+
+        <p class="howto-hint">※ この統計は今お使いの端末（ブラウザ）に保存された記録の集計です。</p>
+
+        <div class="result-buttons">
+          <button id="btn-stats-back" class="pixel-btn">結果へもどる</button>
+          <button id="btn-stats-title" class="pixel-btn">タイトルへ</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       画面7：診断カード（QR読み取り後 / ?card=1 クエリで直接表示）
+  ============================================================ -->
+  <section id="screen-card" class="screen">
+    <div class="card-wrap">
+      <div class="crt-frame card-frame">
+        <p class="eyebrow">ALGORITHM RESEARCH LAB</p>
+        <p class="card-subeyebrow">診断カード / DIAGNOSTIC CARD</p>
+        <h2 id="card-title" class="result-title small">冒険家</h2>
+        <p id="card-comment" class="ai-comment small">――</p>
+
+        <div class="aptitude-block">
+          <div class="aptitude-row">
+            <span class="aptitude-label">DFS</span>
+            <div class="bar-track"><div id="card-bar-dfs" class="bar-fill bar-dfs"></div></div>
+            <span id="card-pct-dfs" class="aptitude-pct">0%</span>
+          </div>
+          <div class="aptitude-row">
+            <span class="aptitude-label">BFS</span>
+            <div class="bar-track"><div id="card-bar-bfs" class="bar-fill bar-bfs"></div></div>
+            <span id="card-pct-bfs" class="aptitude-pct">0%</span>
+          </div>
+          <div class="aptitude-row">
+            <span class="aptitude-label">線形探索</span>
+            <div class="bar-track"><div id="card-bar-linear" class="bar-fill bar-linear"></div></div>
+            <span id="card-pct-linear" class="aptitude-pct">0%</span>
+          </div>
+        </div>
+
+        <div class="stat-grid two-col">
+          <div class="stat-box"><span class="stat-k">クリアタイム</span><span id="card-stat-time" class="stat-v">00:00</span></div>
+          <div class="stat-box"><span class="stat-k">歩数</span><span id="card-stat-steps" class="stat-v">0</span></div>
+        </div>
+        <p class="footer-note">PLAYER ID: <span id="card-player-id">------</span></p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
