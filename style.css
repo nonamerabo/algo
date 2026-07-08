@@ -294,6 +294,43 @@ body::before {
 }
 .pixel-btn.primary:hover { border-color: #fff; }
 
+/* 設定ボタンなど、副次的なボタンは少し控えめなサイズにする */
+.pixel-btn.small-btn {
+  font-size: 10px;
+  padding: 10px 16px;
+  opacity: 0.85;
+}
+/* 履歴リセットなど、取り消せない操作のボタン */
+.pixel-btn.danger {
+  border-color: var(--line-magenta);
+  color: var(--line-magenta);
+}
+.pixel-btn.danger:hover { background: rgba(255, 46, 109, 0.12); }
+
+/* ⑦AIデータベースボタン：文化祭で「教育的な作品」であることを伝える
+   重要な導線なので、光る演出とNEWバッジで自然に押したくなるようにする */
+.pixel-btn.glow-new {
+  position: relative;
+  border-color: var(--line-cyan);
+  color: var(--line-cyan);
+  animation: glowNewPulse 1.8s ease-in-out infinite;
+}
+@keyframes glowNewPulse {
+  0%, 100% { box-shadow: 3px 3px 0 rgba(0,0,0,0.6), 0 0 6px rgba(77,238,234,0.25); }
+  50%      { box-shadow: 3px 3px 0 rgba(0,0,0,0.6), 0 0 18px rgba(77,238,234,0.75); }
+}
+.new-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: var(--line-magenta);
+  color: #fff;
+  font-size: 8px;
+  padding: 3px 6px;
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(255,46,109,0.7);
+}
+
 /* STARTボタンはゲームへの入口として最も目立たせたいため、
    一回り大きく・常時ほのかに発光させて視線を集める */
 #btn-start {
@@ -760,6 +797,11 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+/* ④設定画面での手動トグル（展示モードの画面焼け防止アニメ等はここでは止めない） */
+body.reduce-motion-pref * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
 
 /* フォーカス可視化（アクセシビリティ） */
 button:focus-visible {
@@ -767,221 +809,333 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-/* ============================================================
-   起動画面（SYSTEM BOOT）
-============================================================ */
-.boot-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 1;
-  transition: opacity 0.8s ease;
-}
-.boot-screen.boot-hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-.boot-screen.boot-gone {
-  display: none;
-}
-.boot-inner {
-  width: min(86vw, 460px);
-  font-family: var(--font-body);
-  color: var(--line-cyan);
+/* ================================================================
+   追加機能スタイル（②SYSTEM BOOT／①研究所ログ／⑫ポップアップ／
+   ⑩ギミックのハイライト／⑤平均比較／⑥アルゴリズム解説／
+   ⑧エンディング演出／⑨SNSシェアカード／⑪展示モード）
+================================================================ */
+
+/* ---- ②SYSTEM BOOT画面 ---- */
+.boot-wrap {
+  width: min(90vw, 480px);
+  text-align: center;
+  font-family: var(--font-pixel);
 }
 .boot-line {
-  margin: 0 0 12px;
-  font-size: 13px;
-  letter-spacing: 0.03em;
+  font-size: clamp(11px, 3vw, 14px);
+  color: var(--line-cyan);
+  margin: 0 0 16px;
   opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.4s ease, transform 0.4s ease;
 }
-.boot-line.boot-show { opacity: 1; transform: translateY(0); }
-.boot-complete { color: var(--line-amber); font-weight: bold; }
-.boot-welcome {
-  margin-top: 16px;
-  font-family: var(--font-pixel);
-  font-size: 14px;
-  color: var(--text-main);
-  text-align: center;
-  letter-spacing: 0.08em;
-  opacity: 0;
-  transition: opacity 0.5s ease;
+.boot-line.show {
+  animation: bootFadeIn 0.5s ease forwards;
 }
-.boot-welcome.boot-show { opacity: 1; }
+@keyframes bootFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 .boot-bar-outer {
   width: 100%;
-  height: 10px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid var(--line-cyan-dim);
-  margin: 10px 0 18px;
+  height: 14px;
+  border: 2px solid var(--line-cyan-dim);
+  background: var(--bg-panel);
+  margin-bottom: 18px;
   overflow: hidden;
 }
 .boot-bar-inner {
   width: 0%;
   height: 100%;
-  background: var(--line-cyan);
-  transition: width 2.1s linear;
+  background: repeating-linear-gradient(90deg, var(--line-cyan) 0 6px, #1c6b6a 6px 12px);
+  transition: width 2.2s linear;
+}
+.boot-complete {
+  color: var(--line-amber);
+  font-size: clamp(14px, 3.6vw, 18px);
+}
+.boot-welcome {
+  color: #fff;
+  font-size: clamp(13px, 3.2vw, 16px);
+  text-shadow: 0 0 10px rgba(77,238,234,0.6);
 }
 
-/* ============================================================
-   ラボログ・ティッカー（画面演出のみ。ゲームには影響しない）
-============================================================ */
+/* ---- ①研究所ログのティッカー（REC表示の下に小さく流れる） ---- */
 .lab-log-ticker {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  max-width: 62vw;
-  font-family: var(--font-body);
-  font-size: 10px;
-  color: rgba(77, 238, 234, 0.65);
-  background: rgba(5, 7, 13, 0.55);
-  border: 1px solid rgba(77, 238, 234, 0.2);
-  padding: 4px 8px;
-  letter-spacing: 0.02em;
+  display: block;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  letter-spacing: 0.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 220px;
 }
-.lab-log-caret { margin-right: 4px; opacity: 0.8; }
+#rec-indicator {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 14px;
+}
+#rec-indicator > span:first-child,
+#rec-indicator .rec-text { display: inline-block; }
+#rec-indicator .rec-dot { display: inline-block; vertical-align: middle; }
 
-/* AIポップアップ（トースト） */
-.ai-toast {
-  position: fixed;
-  top: 14%;
-  left: 50%;
-  transform: translate(-50%, -6px);
-  z-index: 9500;
-  background: rgba(8, 12, 22, 0.9);
-  border: 1px solid var(--line-magenta);
-  color: var(--line-magenta);
-  font-family: var(--font-body);
-  font-size: 11px;
-  padding: 6px 14px;
-  letter-spacing: 0.04em;
-  opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+/* ---- ⑫ランダムポップアップ（右上に小さく浮かぶ演出。ゲームには影響しない） ---- */
+.lab-popup {
+  position: absolute;
+  top: 60px;
+  right: 14px;
+  z-index: 9002;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: var(--line-cyan);
+  background: rgba(13, 20, 36, 0.85);
+  border: 1px solid var(--line-cyan-dim);
+  padding: 6px 10px;
   pointer-events: none;
 }
-.ai-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.lab-popup.show {
+  animation: labPopupFade 2.4s ease forwards;
+}
+@keyframes labPopupFade {
+  0%   { opacity: 0; transform: translateY(-6px); }
+  15%  { opacity: 1; transform: translateY(0); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
 
-/* ============================================================
-   アルゴリズム解説モーダル
-============================================================ */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9800;
-  background: rgba(0, 0, 0, 0.72);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-.modal-box {
-  position: relative;
-  max-width: 520px;
-  width: 100%;
-  max-height: 82vh;
-  overflow-y: auto;
-  padding: 26px 20px;
-}
-.modal-close {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  background: none;
-  border: none;
+/* ---- ⑩マップギミックの遊び方説明ハイライト ---- */
+.hl-key { color: #ffe27a; font-weight: bold; }
+.hl-door { color: #c9a6ff; font-weight: bold; }
+.hl-warp { color: #ff6bd6; font-weight: bold; }
+.hl-pitfall { color: #ff6b6b; font-weight: bold; }
+.hl-recovery { color: #7dffb0; font-weight: bold; }
+
+/* ---- ⑤みんなの平均との比較行 ---- */
+.compare-line {
+  font-size: 10px;
   color: var(--text-dim);
-  font-size: 16px;
-  cursor: pointer;
-  font-family: var(--font-body);
+  margin: -4px 0 14px 2px;
 }
-.algo-heading {
-  color: var(--line-cyan);
+.compare-line.higher { color: var(--line-amber); }
+.compare-line.lower { color: var(--line-cyan); }
+
+/* ---- ⑧エンディング演出（真実の開示） ---- */
+.reveal-wrap {
+  width: min(90vw, 520px);
+  text-align: center;
+}
+.reveal-line {
   font-family: var(--font-pixel);
-  font-size: 12px;
-  margin: 18px 0 8px;
+  font-size: clamp(13px, 3.6vw, 19px);
+  color: #fff;
+  line-height: 2;
+  opacity: 0;
+  text-shadow: 0 0 12px rgba(77,238,234,0.4);
 }
-.algo-heading.small { color: var(--line-amber); font-size: 11px; }
-.algo-desc {
+.reveal-line.show {
+  animation: revealFade 1.4s ease forwards;
+}
+.reveal-line.emphasis {
+  color: var(--line-magenta);
+  font-size: clamp(16px, 4.2vw, 24px);
+  text-shadow: 0 0 16px rgba(255,46,109,0.6);
+}
+@keyframes revealFade {
+  0%   { opacity: 0; transform: scale(0.96); }
+  20%  { opacity: 1; transform: scale(1); }
+  85%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---- 設定画面 ---- */
+.settings-row {
+  border-top: 1px dashed var(--wall-color);
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.settings-label {
   font-size: 13px;
-  line-height: 1.7;
   color: var(--text-main);
   margin: 0;
 }
-.algo-why-list {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--text-dim);
-}
-
-/* みんなとの比較 */
-.compare-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 8px 0 16px;
-}
-.compare-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  background: var(--bg-panel-2);
-  border: 1px solid rgba(77, 238, 234, 0.15);
-  padding: 8px 10px;
+.settings-feedback {
   font-size: 11px;
+  color: var(--line-amber);
+  margin: 0;
 }
-.compare-label { color: var(--line-amber); }
-.compare-text { color: var(--text-main); text-align: right; }
-.small-btn {
-  font-size: 9px;
-  padding: 8px 10px;
+
+/* ---- ⑥アルゴリズム解説ページ ---- */
+.explain-personal {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--line-cyan-dim);
+  padding: 14px 16px;
+  margin-bottom: 22px;
+}
+.reason-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.explain-card {
+  border: 1px solid var(--wall-color);
+  padding: 12px 16px;
   margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.research-label {
+  display: inline-block;
+  font-size: 9px;
+  color: var(--line-amber);
+  border: 1px solid var(--line-amber);
+  padding: 2px 6px;
+  margin-left: 10px;
+  vertical-align: middle;
+  letter-spacing: 1px;
+}
+.algo-detail {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.algo-detail dt {
+  color: var(--line-cyan);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  margin-top: 10px;
+  letter-spacing: 0.5px;
+}
+.algo-detail dd {
+  margin: 4px 0 0;
+  color: var(--text-main);
 }
 
-/* 最新の記録リスト */
-.recent-list .rank-name { font-size: 10px; }
+/* ---- ⑪エンディング演出：研究所コンソール画面（タイプライター表示） ---- */
+.ending-console {
+  width: min(92vw, 560px);
+  height: min(80vh, 520px);
+  background: #000;
+  border: 1px solid #113322;
+  padding: 24px;
+  overflow-y: auto;
+  box-shadow: 0 0 40px rgba(0,0,0,0.8);
+}
+.ending-log {
+  font-family: var(--font-body);
+  font-size: clamp(12px, 3vw, 15px);
+  line-height: 1.9;
+  color: #39ff8c;
+  text-shadow: 0 0 8px rgba(57,255,140,0.5);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.ending-prompt {
+  margin-top: 22px;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: var(--line-cyan);
+  text-shadow: 0 0 8px rgba(77,238,234,0.5);
+}
+.ending-cursor {
+  display: inline-block;
+  margin-left: 4px;
+  animation: blink 1s steps(2, start) infinite;
+}
+#screen-ending { background: #000; }
 
-/* エンディング演出（暗転からの告白テキスト） */
-.analyzing-reveal {
-  position: absolute;
-  inset: 0;
+/* ---- ⑨SNSシェア用の診断カード（研究所レポート風） ---- */
+.card-wrap {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  background: #000;
-  opacity: 0;
-  transition: opacity 0.9s ease;
+  padding: 20px 0;
+  gap: 16px;
 }
-.analyzing-reveal.show { opacity: 1; }
-.reveal-line {
+.share-card {
+  position: relative;
+  width: min(92vw, 380px);
+  aspect-ratio: 4 / 5;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(77,238,234,0.12), transparent 45%),
+    linear-gradient(160deg, #0d1424 0%, #060910 100%);
+  border: 1px solid var(--line-cyan-dim);
+  box-shadow: var(--border-glow), 0 20px 60px rgba(0,0,0,0.7);
+  padding: 28px 22px;
+  text-align: left;
+  overflow-y: auto;
+  background-image:
+    linear-gradient(rgba(77,238,234,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77,238,234,0.05) 1px, transparent 1px);
+  background-size: 18px 18px, 18px 18px, 100% 100%, 100% 100%;
+}
+.share-card-corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line-amber);
+}
+.share-card-corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+.share-card-corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+.share-card-corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+.share-card-corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+.share-card-brand {
   font-family: var(--font-pixel);
-  color: var(--text-main);
-  font-size: 13px;
-  text-align: center;
-  padding: 0 20px;
-  opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  font-size: 10px;
+  color: var(--line-cyan);
+  letter-spacing: 1px;
+  margin: 0 0 4px;
 }
-.reveal-line.reveal-show { opacity: 1; transform: translateY(0); }
-.reveal-sub { color: var(--line-magenta); font-size: 10px; letter-spacing: 0.08em; }
+.share-card-footer {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 14px;
+  border-top: 1px dashed var(--wall-color);
+  padding-top: 10px;
+}
+.card-actions { display: flex; gap: 12px; }
 
-/* 展示モード：長時間放置時のCRT焼け防止用の軽い明滅 */
-.idle-pulse .title-frame {
-  animation: idlePulse 6s ease-in-out infinite;
+/* ---- ⑪展示モード：焼き付き防止のための、常時ごく軽いアニメーション ---- */
+body::before {
+  animation: idleDrift 70s ease-in-out infinite;
 }
-@keyframes idlePulse {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.06); }
+@keyframes idleDrift {
+  0%, 100% { background-position: 0 0, 0 0; filter: hue-rotate(0deg); }
+  50%      { background-position: 14px 10px, 10px 14px; filter: hue-rotate(8deg); }
+}
+
+/* ---- 統計ページ：最新20件テーブル ---- */
+.recent-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+.recent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.recent-table th, .recent-table td {
+  border-bottom: 1px solid var(--wall-color);
+  padding: 6px 10px;
+  text-align: left;
+}
+.recent-table th {
+  color: var(--line-cyan);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+}
+
+/* ---- レスポンシブ追加調整 ---- */
+@media (max-width: 480px) {
+  .lab-log-ticker { max-width: 140px; }
 }

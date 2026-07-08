@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Algorithm Research Lab ～AIがあなたの思考を解析します～</title>
+<title>Algorithm Research Lab</title>
 
 <!-- ドット絵/8bit風フォント（読み込めない場合はCSS側でmonospaceにフォールバック） -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,52 +14,20 @@
 <body>
 
 <!-- ========================================================
-     起動画面（SYSTEM BOOT）。初回アクセス時のみ約3秒間表示する。
-======================================================== -->
-<div id="screen-boot" class="boot-screen">
-  <div class="boot-inner">
-    <p class="boot-line" id="boot-l1">SYSTEM BOOT...</p>
-    <p class="boot-line" id="boot-l2">Initializing AI Laboratory...</p>
-    <p class="boot-line" id="boot-l3">Loading Subject Data...</p>
-    <div class="boot-bar-outer"><div class="boot-bar-inner" id="boot-bar"></div></div>
-    <p class="boot-line boot-complete" id="boot-l4">COMPLETE</p>
-    <p class="boot-welcome" id="boot-l5">WELCOME SUBJECT</p>
-  </div>
-</div>
-
-<!-- ========================================================
      観察演出用オーバーレイ（常時最前面。CRTスキャンラインとRECランプ）
-     ゲームクリア後に「実は見られていた」感を強めるための仕掛け
+     ゲーム中は「観察されている」ことをそれとなく示すだけに留め、
+     AI診断の内容そのものはクリアするまで一切説明しない。
 ======================================================== -->
 <div id="crt-overlay" aria-hidden="true">
   <div class="scanlines"></div>
   <div class="vignette"></div>
   <div id="rec-indicator" class="hidden">
     <span id="rec-dot" class="rec-dot"></span><span id="rec-text" class="rec-text">REC ● OBSERVING</span>
+    <!-- ①研究所ログ：数秒ごとにランダムな一言が流れる（世界観演出のみ。ゲームには一切影響しない） -->
+    <span id="lab-log-ticker" class="lab-log-ticker">Initializing...</span>
   </div>
-  <!-- 研究所らしいログの常時表示（ゲーム画面でのみ内容が更新される。世界観演出のみでゲームには影響しない） -->
-  <div id="lab-log-ticker" class="lab-log-ticker hidden">
-    <span class="lab-log-caret">&gt;</span><span id="lab-log-text">Collecting Data...</span>
-  </div>
-</div>
-
-<!-- ランダムに浮かび上がる研究所ポップアップ（世界観演出のみ） -->
-<div id="ai-toast" class="ai-toast hidden"></div>
-
-<!-- アルゴリズム解説モーダル -->
-<div id="algo-modal" class="modal-overlay hidden">
-  <div class="modal-box crt-frame">
-    <button id="algo-modal-close" class="modal-close" aria-label="閉じる">✕</button>
-    <p class="eyebrow">AI DATABASE - ALGORITHM GUIDE</p>
-    <h3 class="algo-heading">DFS（深さ優先探索）</h3>
-    <p class="algo-desc">一本道を最後まで進んでから戻る探し方です。迷路で行き止まりまで進む人に近い考え方です。</p>
-    <h3 class="algo-heading">BFS（幅優先探索）</h3>
-    <p class="algo-desc">近い場所から順番に広く探します。最短ルートを見つけるのが得意です。</p>
-    <h3 class="algo-heading">線形探索</h3>
-    <p class="algo-desc">最初から順番に一つずつ確認していく方法です。確実ですが時間がかかることがあります。</p>
-    <h3 class="algo-heading small">今回あなたがこのタイプだった理由</h3>
-    <ul id="algo-why-list" class="algo-why-list"></ul>
-  </div>
+  <!-- ⑫ランダムに一瞬だけ表示される研究所ポップアップ（右上あたりに小さく出る演出専用） -->
+  <div id="lab-popup" class="lab-popup hidden">行動記録更新</div>
 </div>
 
 <!-- ラボの実験番号（雰囲気演出。JSでランダムな被験者IDを差し込む） -->
@@ -68,15 +36,29 @@
 <main id="app">
 
   <!-- ============================================================
+       画面0：SYSTEM BOOT（初回起動時のみ、約3秒間表示）
+  ============================================================ -->
+  <section id="screen-boot" class="screen">
+    <div class="boot-wrap">
+      <p id="boot-line-1" class="boot-line">SYSTEM BOOT...</p>
+      <p id="boot-line-2" class="boot-line">Initializing AI Laboratory...</p>
+      <p id="boot-line-3" class="boot-line">Loading Subject Data...</p>
+      <p id="boot-line-3b" class="boot-line">Loading Behavior Analyzer...</p>
+      <div class="boot-bar-outer"><div id="boot-bar-inner" class="boot-bar-inner"></div></div>
+      <p id="boot-line-4" class="boot-line boot-complete">COMPLETE</p>
+      <p id="boot-line-5" class="boot-line boot-welcome">WELCOME SUBJECT</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
        画面1：タイトル画面
   ============================================================ -->
-  <section id="screen-title" class="screen active">
+  <section id="screen-title" class="screen">
     <div class="crt-frame title-frame">
       <p class="eyebrow">AI RESEARCH FACILITY - SECTOR 7</p>
       <h1 class="game-title">
         ALGORITHM<br/>RESEARCH LAB
       </h1>
-      <p class="game-subtitle">AIがあなたの思考を解析します</p>
       <p class="recruit-tag">「被験者募集中」</p>
 
       <div class="title-flavor">
@@ -87,9 +69,10 @@
       <div class="title-buttons">
         <button id="btn-start" class="pixel-btn primary">START</button>
         <button id="btn-howto" class="pixel-btn">遊び方</button>
-        <button id="btn-title-history" class="pixel-btn">【みんなの履歴】</button>
+        <button id="btn-history" class="pixel-btn">【みんなの履歴】</button>
+        <button id="btn-settings" class="pixel-btn small-btn">設定</button>
       </div>
-      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.1.0</p>
+      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.2.0</p>
     </div>
   </section>
 
@@ -103,10 +86,10 @@
         <li><span class="key-badge">↑↓←→</span> または <span class="key-badge">W A S D</span> でキャラクターを動かします。</li>
         <li>ダンジョンの中にある <span class="hl-treasure">宝箱</span> を見つけましょう。</li>
         <li>宝箱を見つけたら <span class="hl-goal">ゴール地点</span> を目指してください。</li>
+        <li>ダンジョンには <span class="hl-key">鍵</span>・<span class="hl-door">隠し部屋</span>・<span class="hl-warp">ワープ</span>・<span class="hl-pitfall">落とし穴</span>・<span class="hl-recovery">回復ポイント</span>が隠れていることも。見つけると何かが起きるかも？</li>
         <li>プレイ時間の目安は 3〜5分 です。じっくり探しても、まっすぐ進んでもOK！</li>
         <li>スマホ・タブレットの場合は画面下の矢印ボタンでも操作できます。</li>
       </ul>
-      <p class="howto-hint">※ クリア後、あなたの探索の仕方から「思考のクセ」を分析します。</p>
       <button id="btn-howto-back" class="pixel-btn">もどる</button>
     </div>
   </section>
@@ -162,17 +145,54 @@
        画面4：解析演出（クリア直後）
   ============================================================ -->
   <section id="screen-analyzing" class="screen">
-    <div class="analyzing-wrap" id="analyzing-progress-wrap">
+    <div class="analyzing-wrap">
       <p id="analyzing-line" class="analyzing-line">データ収集中...</p>
       <div class="progress-outer">
         <div id="progress-bar" class="progress-inner"></div>
       </div>
       <p id="analyzing-percent" class="analyzing-percent">0%</p>
     </div>
-    <div class="analyzing-reveal hidden" id="analyzing-reveal">
-      <p class="reveal-line" id="reveal-line-1">あなたはAI研究所の被験者でした。</p>
-      <p class="reveal-line reveal-sub" id="reveal-line-2">MISSION COMPLETE</p>
-      <p class="reveal-line reveal-sub" id="reveal-line-3">Behavior Analysis Finished</p>
+  </section>
+
+  <!-- ============================================================
+       画面4.5：エンディング演出（真実の開示・旧バージョン。現在は自動再生しないが
+       将来的な再利用に備えて残置。実際のエンディングは screen-ending 側。）
+  ============================================================ -->
+  <section id="screen-reveal" class="screen">
+    <div class="reveal-wrap">
+      <p id="reveal-line" class="reveal-line">……解析が完了しました。</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       画面4.6：設定画面
+  ============================================================ -->
+  <section id="screen-settings" class="screen">
+    <div class="crt-frame howto-frame">
+      <h2 class="panel-title">設定</h2>
+      <div class="settings-row">
+        <p class="settings-label">アニメーションを軽減する</p>
+        <button id="btn-toggle-reduce-motion" class="pixel-btn">アニメーション軽減：OFF</button>
+      </div>
+      <div class="settings-row">
+        <p class="settings-label">この端末に保存された「みんなの履歴」をリセットします。</p>
+        <button id="btn-clear-history" class="pixel-btn danger">履歴をリセットする</button>
+        <p id="settings-feedback" class="settings-feedback hidden"></p>
+      </div>
+      <button id="btn-settings-back" class="pixel-btn">もどる</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       画面4.7：エンディング（研究所コンソール画面）
+       診断結果画面から「タイトルへ」を押した時にのみ再生される。
+       EndingManagerクラスがタイプライター表示・スキップ操作・
+       展示モードでの自動タイムアウトを管理する。
+  ============================================================ -->
+  <section id="screen-ending" class="screen">
+    <div class="ending-console">
+      <pre id="ending-log" class="ending-log"></pre>
+      <p id="ending-prompt" class="ending-prompt hidden">ENTER・SPACE・タップでタイトルへ戻る<span class="ending-cursor">▌</span></p>
     </div>
   </section>
 
@@ -187,33 +207,29 @@
         <h2 id="result-title" class="result-title">冒険家</h2>
         <p id="result-ai-comment" class="ai-comment">――</p>
 
-        <!-- 適性グラフ -->
+        <!-- 適性グラフ（あなた／みんなの平均との比較つき） -->
         <div class="aptitude-block">
           <div class="aptitude-row">
             <span class="aptitude-label">DFS適性</span>
             <div class="bar-track"><div id="bar-dfs" class="bar-fill bar-dfs"></div></div>
             <span id="pct-dfs" class="aptitude-pct">0%</span>
           </div>
+          <p id="compare-dfs" class="compare-line">みんなの平均と比較中...</p>
+
           <div class="aptitude-row">
             <span class="aptitude-label">BFS適性</span>
             <div class="bar-track"><div id="bar-bfs" class="bar-fill bar-bfs"></div></div>
             <span id="pct-bfs" class="aptitude-pct">0%</span>
           </div>
+          <p id="compare-bfs" class="compare-line">みんなの平均と比較中...</p>
+
           <div class="aptitude-row">
             <span class="aptitude-label">線形探索適性</span>
             <div class="bar-track"><div id="bar-linear" class="bar-fill bar-linear"></div></div>
             <span id="pct-linear" class="aptitude-pct">0%</span>
           </div>
+          <p id="compare-linear" class="compare-line">みんなの平均と比較中...</p>
         </div>
-
-        <!-- みんなとの比較 -->
-        <h3 class="panel-title small">みんなとの比較</h3>
-        <div class="compare-block" id="compare-block">
-          <div class="compare-row"><span class="compare-label">DFS</span><span id="compare-dfs" class="compare-text">―</span></div>
-          <div class="compare-row"><span class="compare-label">BFS</span><span id="compare-bfs" class="compare-text">―</span></div>
-          <div class="compare-row"><span class="compare-label">線形探索</span><span id="compare-linear" class="compare-text">―</span></div>
-        </div>
-        <button id="btn-algo-info" class="pixel-btn small-btn">アルゴリズム解説</button>
 
         <!-- 数値スタッツ -->
         <div class="stat-grid">
@@ -250,6 +266,9 @@
 
         <div class="result-buttons">
           <button id="btn-retry" class="pixel-btn primary">もう一度実験する</button>
+          <button id="btn-explain" class="pixel-btn glow-new">
+            AIデータベース<span class="new-badge">NEW</span>
+          </button>
           <button id="btn-stats" class="pixel-btn">みんなの統計を見る</button>
           <button id="btn-title" class="pixel-btn">タイトルへ</button>
         </div>
@@ -259,10 +278,7 @@
   </section>
 
   <!-- ============================================================
-       画面6：みんなの統計ページ
-       StorageManager が集計したこれまでの記録を表示する。
-       将来オンライン化する場合もこの画面の描画部分（ResultRenderer）
-       だけを差し替えれば対応できるように設計している。
+       画面6：みんなの統計ページ（AI研究所データベース）
   ============================================================ -->
   <section id="screen-stats" class="screen">
     <div class="result-scroll">
@@ -271,7 +287,7 @@
         <h2 class="panel-title">みんなの統計</h2>
 
         <div class="stat-grid stats-summary">
-          <div class="stat-box"><span class="stat-k">歴代プレイ人数</span><span id="stats-total-players" class="stat-v">0</span></div>
+          <div class="stat-box"><span class="stat-k">総プレイ人数</span><span id="stats-total-players" class="stat-v">0</span></div>
           <div class="stat-box"><span class="stat-k">平均クリア時間</span><span id="stats-avg-time" class="stat-v">00:00</span></div>
           <div class="stat-box"><span class="stat-k">平均歩数</span><span id="stats-avg-steps" class="stat-v">0</span></div>
         </div>
@@ -279,17 +295,17 @@
         <h3 class="panel-title small">タイプ割合</h3>
         <div class="aptitude-block">
           <div class="aptitude-row">
-            <span class="aptitude-label">DFSタイプ</span>
+            <span class="aptitude-label">DFS割合</span>
             <div class="bar-track"><div id="stats-bar-dfs" class="bar-fill bar-dfs"></div></div>
             <span id="stats-pct-dfs" class="aptitude-pct">0%</span>
           </div>
           <div class="aptitude-row">
-            <span class="aptitude-label">BFSタイプ</span>
+            <span class="aptitude-label">BFS割合</span>
             <div class="bar-track"><div id="stats-bar-bfs" class="bar-fill bar-bfs"></div></div>
             <span id="stats-pct-bfs" class="aptitude-pct">0%</span>
           </div>
           <div class="aptitude-row">
-            <span class="aptitude-label">線形探索タイプ</span>
+            <span class="aptitude-label">線形探索割合</span>
             <div class="bar-track"><div id="stats-bar-linear" class="bar-fill bar-linear"></div></div>
             <span id="stats-pct-linear" class="aptitude-pct">0%</span>
           </div>
@@ -304,8 +320,17 @@
         <h3 class="panel-title small">探索率ランキング（上位10件）</h3>
         <ol id="stats-exploration-ranking" class="ranking-list"></ol>
 
-        <h3 class="panel-title small">最新の記録（20件）</h3>
-        <ol id="stats-recent-list" class="ranking-list recent-list"></ol>
+        <h3 class="panel-title small">最新20件の記録</h3>
+        <div class="recent-table-wrap">
+          <table class="recent-table">
+            <thead>
+              <tr><th>被験者No.</th><th>称号</th><th>診断タイプ</th><th>クリアタイム</th><th>歩数</th></tr>
+            </thead>
+            <tbody id="stats-recent-table-body">
+              <tr><td colspan="5" class="ranking-empty">まだ記録がありません。</td></tr>
+            </tbody>
+          </table>
+        </div>
 
         <p class="howto-hint">※ この統計は今お使いの端末（ブラウザ）に保存された記録の集計です。</p>
 
@@ -318,13 +343,83 @@
   </section>
 
   <!-- ============================================================
-       画面7：診断カード（QR読み取り後 / ?card=1 クエリで直接表示）
+       画面6.5：アルゴリズム解説（AIデータベース）
+  ============================================================ -->
+  <section id="screen-explain" class="screen">
+    <div class="result-scroll">
+      <div class="crt-frame result-frame">
+        <p class="eyebrow">AI DATABASE - ALGORITHM ARCHIVE</p>
+        <h2 class="panel-title">アルゴリズム解説<span class="research-label">研究資料</span></h2>
+
+        <div id="explain-personal" class="explain-personal">
+          <h3 class="panel-title small">今回あなたが「<span id="explain-your-title">――</span>」と診断された理由</h3>
+          <ul id="explain-reasons" class="reason-list"></ul>
+        </div>
+
+        <div class="explain-card">
+          <h3 class="panel-title small">🌲 DFS（深さ優先探索）</h3>
+          <p>一本道を最後まで進み、行き止まりまで行ってから戻る探し方です。迷路で「とりあえず最後まで行ってみよう！」と考える人に近いアルゴリズムです。</p>
+          <dl class="algo-detail">
+            <dt>どんな場面で使う？</dt>
+            <dd>枝分かれした道を1つ選んだらそのまま奥まで突き進み、行き止まったら1つ手前に戻ってまた次の道へ――を繰り返す場面。</dd>
+            <dt>メリット</dt>
+            <dd>使うメモリが少なくて済み、仕組みがシンプル。パズルが「解けるか」を調べるのが得意。</dd>
+            <dt>デメリット</dt>
+            <dd>運が悪いと遠回りな道ばかり選んでしまい、最短ルートを見つけるのは苦手。</dd>
+            <dt>実際の利用例</dt>
+            <dd>迷路の自動生成／数独やパズルの解法探し／将棋やオセロの手を読むプログラムなど。</dd>
+          </dl>
+        </div>
+        <div class="explain-card">
+          <h3 class="panel-title small">🌊 BFS（幅優先探索）</h3>
+          <p>近い場所から順番に広く探します。遠回りを減らし、最短ルートを見つけるのが得意です。</p>
+          <dl class="algo-detail">
+            <dt>どんな場面で使う？</dt>
+            <dd>今いる場所から1歩で行ける場所を全部確認し、それから2歩で行ける場所……と輪を広げるように探す場面。</dd>
+            <dt>メリット</dt>
+            <dd>一番少ない歩数でゴールにたどり着く「最短ルート」を必ず見つけられる。近道を見逃さない。</dd>
+            <dt>デメリット</dt>
+            <dd>一度に覚えておく場所の数が多くなりやすく、DFSよりメモリを多く使う。</dd>
+            <dt>実際の利用例</dt>
+            <dd>カーナビの最短経路探索／SNSの「友達の友達」をたどる機能／路線検索アプリなど。</dd>
+          </dl>
+        </div>
+        <div class="explain-card">
+          <h3 class="panel-title small">📋 線形探索</h3>
+          <p>最初から順番に一つずつ確認していく方法です。確実ですが、データが多いと時間がかかることがあります。</p>
+          <dl class="algo-detail">
+            <dt>どんな場面で使う？</dt>
+            <dd>リストや名簿を先頭から1件ずつ順番にチェックして、探しているものを見つける場面。</dd>
+            <dt>メリット</dt>
+            <dd>仕組みがとても分かりやすく、データが並んでいなくても確実に見つけ出せる。</dd>
+            <dt>デメリット</dt>
+            <dd>データの数が多くなるほど確認する回数も増え、時間がかかる。</dd>
+            <dt>実際の利用例</dt>
+            <dd>電話帳から名前を1件ずつ探す／忘れ物を1つずつ確認する／簡単なリストの検索処理など。</dd>
+          </dl>
+        </div>
+
+        <div class="result-buttons">
+          <button id="btn-explain-back" class="pixel-btn">結果へもどる</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       画面7：診断カード（QR読み取り後 / ?ty=... クエリで直接表示）
+       SNS投稿を意識した「研究所レポート風」カードデザイン。
   ============================================================ -->
   <section id="screen-card" class="screen">
     <div class="card-wrap">
-      <div class="crt-frame card-frame">
-        <p class="eyebrow">ALGORITHM RESEARCH LAB</p>
-        <p class="card-subeyebrow">診断カード / DIAGNOSTIC CARD</p>
+      <div class="share-card" id="share-card">
+        <div class="share-card-corner tl"></div>
+        <div class="share-card-corner tr"></div>
+        <div class="share-card-corner bl"></div>
+        <div class="share-card-corner br"></div>
+
+        <p class="share-card-brand">ALGORITHM RESEARCH LAB</p>
+        <p class="card-subeyebrow">診断カード / DIAGNOSTIC REPORT</p>
         <h2 id="card-title" class="result-title small">冒険家</h2>
         <p id="card-comment" class="ai-comment small">――</p>
 
@@ -350,8 +445,13 @@
           <div class="stat-box"><span class="stat-k">クリアタイム</span><span id="card-stat-time" class="stat-v">00:00</span></div>
           <div class="stat-box"><span class="stat-k">歩数</span><span id="card-stat-steps" class="stat-v">0</span></div>
         </div>
-        <p class="footer-note">PLAYER ID: <span id="card-player-id">------</span></p>
+        <p class="share-card-footer">SUBJECT NO. <span id="card-player-id">------</span></p>
       </div>
+
+      <div class="card-actions">
+        <button id="btn-card-download" class="pixel-btn primary">画像として保存</button>
+      </div>
+      <canvas id="card-share-canvas" class="hidden"></canvas>
     </div>
   </section>
 

@@ -2,16 +2,18 @@
    Algorithm Research Lab - script.js
    ----------------------------------------------------------------
    【クラス構成（保守性向上のため責務ごとに分離しています）】
-     MazeGenerator   : 迷路の自動生成・経路探索（データ構造の管理）
-     PlayerController: プレイヤーの位置・移動・探索ログの記録
+     MazeGenerator   : 迷路とマップギミック（鍵・扉・ワープ等）の生成
+     PlayerController: プレイヤーの位置・移動・探索ログ・ギミック状態の記録
      Analyzer        : 探索ログからDFS/BFS/線形探索らしさを診断（ルールベース）
-     StorageManager  : 診断結果の保存・集計（今はlocalStorage／将来Firebase等に差し替え可能）
+     StorageManager  : 診断結果の保存（今はlocalStorage／将来Firebase等に差し替え可能）
+     StatisticsManager: 保存された記録からの集計・ランキング・平均値の算出
      QRManager       : 診断カードURLの組み立て・QRコード生成/表示
-     UIManager       : 画面切り替え・HUD更新・演出などDOM操作全般
-     ResultRenderer  : 診断結果画面／統計ページの描画
+     LogManager      : 研究所ログの表示演出（世界観演出のみ・ゲームに影響しない）
+     UIManager       : 画面切り替え・HUD更新・各種演出などDOM操作全般
+     ResultRenderer  : 診断結果画面／統計ページ／診断カードの描画
      GameManager     : 上記すべてを繋いでゲーム全体の流れを制御する司令塔
 
-   なお SimpleQR（QRコードの符号化エンジン本体）と Renderer（キャンバス
+   SimpleQR（QRコードの符号化エンジン本体）と Renderer（キャンバス
    描画の共通関数集）は、上記クラスから利用される「低レベルの道具箱」
    として独立させています。
 ================================================================ */
@@ -27,14 +29,17 @@ function randInt(max) {
 function pickRandom(arr) {
   return arr[randInt(arr.length)];
 }
-/** 4〜6桁のランダムな被験者IDを生成する（演出用） */
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+/** 4〜6桁のランダムな被験者IDを生成する */
 function generateSubjectId() {
   const digits = 4 + randInt(3);
   let id = "";
   for (let i = 0; i < digits; i++) id += randInt(10);
   return id;
 }
-/** 統計保存用のユニークID（時刻＋乱数の組み合わせで衝突をほぼ回避しつつ、QR用に短く保つ） */
+/** 統計保存用のユニークID（QRのURLにも載るため短く保つ） */
 function generateRecordId() {
   return Date.now().toString(36).slice(-6) + Math.random().toString(36).slice(2, 6);
 }
@@ -47,14 +52,26 @@ function formatTime(totalSeconds) {
 function cellKey(c, r) {
   return `${c},${r}`;
 }
+/** 配列をシャッフルして新しい配列を返す（Fisher-Yates） */
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randInt(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 
 /* ================================================================
    MazeGenerator
    ----------------------------------------------------------------
    再帰的バックトラッカー法で、全マスが1本の通路網でつながった
-   「木構造の迷路」を生成する。木構造なので寄り道は必ず行き止まりに
-   なり、プレイヤーの探索傾向を測定しやすい。
+   「木構造の迷路」を生成する。木構造なので、スタート→宝箱→ゴールの
+   本筋ルートは必ず一意に定まり、それ以外の道は必ず行き止まりになる。
+   ⑩マップギミック（鍵・扉・ワープ・落とし穴・回復ポイント）は、
+   すべて「本筋ルートから外れた行き止まり」にのみ配置することで、
+   ギミックの有無にかかわらずゲームが必ずクリア可能であることを保証する。
 ================================================================ */
 class MazeGenerator {
   constructor(cols, rows) {
@@ -68,6 +85,7 @@ class MazeGenerator {
     this.start = { c: 0, r: 0 };
     this.goal = this._findFarthestCell(this.start);
     this.treasure = this._findTreasureCell();
+    this.gimmicks = this._placeGimmicks();
   }
 
   idx(c, r) { return r * this.cols + c; }
@@ -151,6 +169,66 @@ class MazeGenerator {
     const distFromStart = this._bfsDistances(this.start);
     deadEnds.sort((a, b) => distFromStart[this.idx(b.c, b.r)] - distFromStart[this.idx(a.c, a.r)]);
     return deadEnds[Math.floor(deadEnds.length / 3)] || deadEnds[0];
+  }
+
+  /**
+   * ⑩マップギミックを配置する。
+   * 本筋ルート（スタート→宝箱→ゴール）とは異なる「行き止まり」だけを
+   * 候補にすることで、ギミックが無くても・使わなくても、
+   * ゲームは必ずクリアできる状態を保つ。
+   */
+  _placeGimmicks() {
+    const mainPath = this.shortestPath(this.start, this.goal).map((p) => cellKey(p.c, p.r));
+    const usedKeys = new Set([
+      cellKey(this.start.c, this.start.r),
+      cellKey(this.goal.c, this.goal.r),
+      cellKey(this.treasure.c, this.treasure.r),
+      ...mainPath,
+    ]);
+
+    const candidates = [];
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const key = cellKey(c, r);
+        if (this.isDeadEnd(c, r) && !usedKeys.has(key)) candidates.push({ c, r });
+      }
+    }
+    const pool = shuffleArray(candidates);
+
+    const takeOne = () => {
+      while (pool.length > 0) {
+        const cell = pool.pop();
+        const key = cellKey(cell.c, cell.r);
+        if (!usedKeys.has(key)) { usedKeys.add(key); return cell; }
+      }
+      return null; // 迷路が小さすぎて候補が足りない場合は諦める（安全側に倒す）
+    };
+
+    return {
+      key: takeOne(),
+      door: takeOne(),
+      warpA: takeOne(),
+      warpB: takeOne(),
+      pitfall: takeOne(),
+      recovery: takeOne(),
+    };
+  }
+
+  /** 指定セルにギミックがあれば種類を返す（無ければnull） */
+  gimmickTypeAt(c, r) {
+    const g = this.gimmicks;
+    if (g.key && g.key.c === c && g.key.r === r) return "key";
+    if (g.door && g.door.c === c && g.door.r === r) return "door";
+    if (g.warpA && g.warpA.c === c && g.warpA.r === r) return "warpA";
+    if (g.warpB && g.warpB.c === c && g.warpB.r === r) return "warpB";
+    if (g.pitfall && g.pitfall.c === c && g.pitfall.r === r) return "pitfall";
+    if (g.recovery && g.recovery.c === c && g.recovery.r === r) return "recovery";
+    return null;
+  }
+
+  /** ワープの対になる行き先を返す */
+  warpDestination(which) {
+    return which === "warpA" ? this.gimmicks.warpB : this.gimmicks.warpA;
   }
 
   _bfsDistances(from) {
@@ -240,17 +318,16 @@ class MazeGenerator {
 /* ================================================================
    PlayerController
    ----------------------------------------------------------------
-   プレイヤーの位置管理・移動処理に加えて、探索ログ（歩数・行き止まり
-   訪問回数・分岐での選択傾向など）の記録も担当する。
-   「プレイヤーを操作すること」と「操作の履歴を記録すること」は
-   一体の責務として、このクラスにまとめている。
+   プレイヤーの位置管理・移動処理・探索ログの記録に加えて、
+   ⑩マップギミック（鍵・扉・ワープ・落とし穴・回復ポイント）との
+   やり取りの状態管理も担当する。
 ================================================================ */
 class PlayerController {
   constructor(maze) {
     this.maze = maze;
     this.c = maze.start.c;
     this.r = maze.start.r;
-    this.drawC = this.c; // 画面上の実際の描画位置（アニメーション用に少し遅れて追従する）
+    this.drawC = this.c;
     this.drawR = this.r;
     this.moving = false;
 
@@ -263,6 +340,13 @@ class PlayerController {
     this.treasureStepIndex = null;
     this.startTime = null;
     this.endTime = null;
+
+    // ⑩ギミック関連の状態
+    this.hasKey = false;
+    this.doorOpened = false;
+    this.pitfallHits = 0;
+    this.warpUsed = 0;
+    this.recoveryUsed = false;
   }
 
   startClock() { this.startTime = performance.now(); }
@@ -270,11 +354,11 @@ class PlayerController {
 
   /**
    * 方向キー入力を受けて移動を試みる。
-   * @param {"up"|"down"|"left"|"right"} dir
-   * @returns {{moved:boolean, reachedGoal:boolean, treasureJustCollected:boolean}}
+   * @returns {{moved:boolean, reachedGoal:boolean, treasureJustCollected:boolean, message:?string}}
    */
   tryMove(dir) {
-    if (this.moving) return { moved: false, reachedGoal: false, treasureJustCollected: false };
+    const noop = { moved: false, reachedGoal: false, treasureJustCollected: false, message: null };
+    if (this.moving) return noop;
     const DIR_MAP = {
       up: { key: "N", dc: 0, dr: -1 },
       down: { key: "S", dc: 0, dr: 1 },
@@ -282,24 +366,50 @@ class PlayerController {
       right: { key: "E", dc: 1, dr: 0 },
     };
     const d = DIR_MAP[dir];
-    if (!d) return { moved: false, reachedGoal: false, treasureJustCollected: false };
+    if (!d) return noop;
 
     const cell = this.maze.cellAt(this.c, this.r);
-    if (cell[d.key]) return { moved: false, reachedGoal: false, treasureJustCollected: false }; // 壁がある
+    if (cell[d.key]) return noop; // 壁がある
 
     const from = { c: this.c, r: this.r };
     const to = { c: this.c + d.dc, r: this.r + d.dr };
-    this._recordMove(from, to);
 
+    // 扉：鍵を持っていなければ通行不可（壁と同じ扱い）
+    const gimmickType = this.maze.gimmickTypeAt(to.c, to.r);
+    if (gimmickType === "door" && !this.doorOpened && !this.hasKey) {
+      return { ...noop, message: "扉に鍵がかかっている…どこかで鍵を探そう" };
+    }
+
+    this._recordMove(from, to);
     this.c = to.c;
     this.r = to.r;
     this.moving = true;
 
     const treasureJustCollected =
       this.treasureCollected && this.treasureStepIndex === this.path.length - 1;
-    const reachedGoal = to.c === this.maze.goal.c && to.r === this.maze.goal.r;
 
-    return { moved: true, reachedGoal, treasureJustCollected };
+    let message = null;
+    if (gimmickType === "key" && !this.hasKey) {
+      this.hasKey = true;
+      message = "鍵を手に入れた！";
+    } else if (gimmickType === "door" && !this.doorOpened) {
+      this.doorOpened = true;
+      message = "隠し部屋を見つけた！";
+    } else if (gimmickType === "recovery" && !this.recoveryUsed) {
+      this.recoveryUsed = true;
+      message = "回復ポイントで気力を取り戻した";
+    } else if (gimmickType === "pitfall") {
+      this.pitfallHits++;
+      message = "落とし穴に落ちた…スタート地点に戻される！";
+      this._teleportTo(this.maze.start);
+    } else if (gimmickType === "warpA" || gimmickType === "warpB") {
+      this.warpUsed++;
+      message = "ワープした！";
+      this._teleportTo(this.maze.warpDestination(gimmickType));
+    }
+
+    const reachedGoal = this.c === this.maze.goal.c && this.r === this.maze.goal.r;
+    return { moved: true, reachedGoal, treasureJustCollected, message };
   }
 
   /** 移動の記録（歩数・行き止まり・分岐選択傾向など） */
@@ -334,6 +444,21 @@ class PlayerController {
       this.treasureCollected = true;
       this.treasureStepIndex = this.path.length - 1;
     }
+  }
+
+  /** ワープ・落とし穴用：自発的な移動ではない「瞬間移動」の記録（簡易版） */
+  _teleportTo(dest) {
+    if (!dest) return;
+    const key = cellKey(dest.c, dest.r);
+    if (this.visitCounts.has(key)) {
+      this.revisitCount++;
+      this.visitCounts.set(key, this.visitCounts.get(key) + 1);
+    } else {
+      this.visitCounts.set(key, 1);
+    }
+    this.path.push({ ...dest });
+    this.c = dest.c;
+    this.r = dest.r;
   }
 
   /** 毎フレーム呼び出し、見た目の座標を目的地へ滑らかに近づける */
@@ -388,111 +513,192 @@ class PlayerController {
    生成AIは一切使用していません。PlayerControllerが記録した行動
    データから、複数のルール（重み付けスコア）でDFS/BFS/線形探索の
    「らしさ」を算出する、完全にルールベースの判定です。
+   ⑩マップギミックの利用状況（危険回避・冒険心）も加味して、
+   「危険回避タイプ」「型破りな挑戦者」といった特別な診断も行います。
+   ⑦診断コメントは、初心者向け／研究者風／AI口調／ユーモア／RPG風の
+   5つのトーンを組み合わせ、各タイプ20種類以上を用意しています。
 ================================================================ */
 const Analyzer = {
-  // 称号・コメントは「typeコード＋バリエーション番号」で管理する。
-  // QRコード経由で診断カードを表示する際も、同じ番号から同じ文章を
-  // 再現できるようにするための設計（URLのペイロードを軽量化するため）。
   TITLE_POOL: {
     D: ["探究者", "冒険家", "未知への挑戦者"],
     B: ["最短マスター", "効率の探検家", "先読みの達人"],
     L: ["慎重派", "丁寧な観察者", "一歩ずつの職人"],
-    X: ["アルゴリズム博士"],
+    X: ["アルゴリズム博士", "万能型研究者"],
+    R: ["危険回避タイプ", "慎重派の生存者"],
+    A: ["型破りな挑戦者", "冒険家（型破り型）"],
   },
-  COMMENT_POOL: {
-    D: [
-      // 初心者向け
-      "未知の道を最後まで探索する傾向があります。",
-      "一度決めた道を、行けるところまで進んでみるタイプです。",
-      "気になった道はとりあえず最後まで確かめてみたくなるようです。",
-      // 研究者風
-      "一度決めた道を最後まで調べるタイプです。",
-      "分岐点での「引き返す」選択が極めて少なく、深さ優先の傾向が顕著に観測されました。",
-      "探索木を深く潜る挙動が支配的で、典型的なスタック型探索者と分類されます。",
-      // AI口調
-      "Subject exhibits deep-first traversal bias. パターン一致：DFS型。",
-      "行動ログ解析の結果、後戻りより前進を優先する意思決定が確認されました。",
-      "AIはあなたの探索を「一直線タイプ」と判定しました。",
-      // ユーモア
-      "行き止まりを恐れず、奥へ奥へと進んでいく探検家気質です。",
-      "「とりあえず行けるとこまで行ってみよう」精神の持ち主のようです。",
-      "迷路の奥地で「あれ、ここ来たことある気が…」と思ったこと、ありませんか？",
-      "戻るボタンより前に進むボタンを連打するタイプかもしれません。",
-      // RPG風
-      "勇者は迷わず最奥を目指す――そんな冒険心を感じる探索でした。",
-      "ダンジョンの奥深くまで足を踏み入れる、生粋の冒険者タイプです。",
-      "一本道の果てにこそ真実がある、と信じて突き進んだようですね。",
-      "未踏の地への恐れより好奇心が勝る、探検家の魂を持っています。",
-      "行き止まりすら「次の冒険への布石」と捉える前向きさが見えました。",
-      "地図を描くより、まず自分の足で確かめたい性格のようです。",
-      "深く潜れば潜るほど燃えるタイプ、と分析されました。",
-      "「戻る」より「進む」を選び続けた、まっすぐな探索者です。",
-      "行き止まりに何度も出会っても、へこたれない粘り強さを感じます。",
-      "迷路の奥の奥まで、好奇心のままに歩き続けたようです。",
-    ],
-    B: [
-      // 初心者向け
-      "周囲を広く確認してから進む傾向があります。",
-      "近い場所から順番にバランスよく調べていくタイプです。",
-      "遠回りが少なく、効率的にゴールへ近づいていました。",
-      // 研究者風
-      "効率良く最短経路を探すことが得意です。",
-      "移動経路と最短経路の乖離が小さく、幅優先探索的な意思決定が観測されました。",
-      "同じマスへの再訪が少なく、無駄のない探索アルゴリズムに近い挙動です。",
-      // AI口調
-      "Subject exhibits breadth-first optimization. パターン一致：BFS型。",
-      "AIの計測では、最短ルートとの差分が全体の中でも小さいグループに分類されました。",
-      "行動データは「最短経路志向」の特徴と高い一致率を示しました。",
-      // ユーモア
-      "無駄のないルート選びで、ゴールまで最短距離を描き出します。",
-      "地図がなくても最短距離の感覚を持っているタイプかもしれません。",
-      "「無駄な動きはしたくない」というこだわりが伝わってきます。",
-      "気づけば最短ルートを歩いていた…そんな効率派です。",
-      // RPG風
-      "冒険にも段取りが大事、とわきまえた賢者タイプの探索でした。",
-      "最短ルートを見抜く「先読みの目」を持つ探検家です。",
-      "遠回りをせず、まっすぐゴールを見据えて進む姿勢が印象的でした。",
-      "地形を俯瞰するように、効率よく道を選び取っていました。",
-      "戦略的に行動する参謀タイプ、と分析されました。",
-      "無駄な戦闘（寄り道）を避ける、堅実な冒険者です。",
-      "最短距離を見極める勘の良さが数値にも表れています。",
-      "経験豊富な冒険者のような、無駄のない足取りでした。",
-      "地図を頭の中に描きながら進む、計画派の探索者です。",
-    ],
-    L: [
-      // 初心者向け
-      "一つずつ丁寧に確認する慎重派です。",
-      "順番通りにコツコツ調べていくタイプです。",
-      "焦らずじっくり進む、落ち着いた探索スタイルでした。",
-      // 研究者風
-      "順序立てて、着実に道を調べていくタイプです。",
-      "分岐での選択が一定の順序パターンに従っており、線形探索的な規則性が確認されました。",
-      "同じ手順を繰り返す挙動が多く観測され、逐次確認型の探索者と分類されます。",
-      // AI口調
-      "Subject exhibits sequential scanning behavior. パターン一致：線形探索型。",
-      "AIの分析では、選択パターンの再現性が高いことが特徴として抽出されました。",
-      "行動ログは「一つずつ確実に」という一貫した傾向を示しています。",
-      // ユーモア
-      "焦らず一手ずつ、確実に選択肢をつぶしていく職人肌です。",
-      "「とりあえず全部見てから決めよう」という慎重さが光ります。",
-      "近道より、確実な道を選ぶタイプのようです。",
-      "石橋を叩いて渡る…いや、叩いて確認してから渡るタイプです。",
-      // RPG風
-      "一歩ずつ確実に、着実に前進する堅実な冒険者です。",
-      "焦らず騒がず、順序立てて謎を解き明かすタイプでした。",
-      "地道な探索の積み重ねこそ真の強さ、と体現するような足取りです。",
-      "確実性を重んじる、職人肌の冒険者と評価されました。",
-      "一つ一つの選択を丁寧に積み重ねる、堅実な探索者です。",
-      "急がば回れ、を体現するような着実な歩みでした。",
-      "慎重さこそ最大の武器、と言わんばかりの探索スタイルです。",
-      "順番を守り、抜け漏れなく調べ尽くす几帳面さが伝わります。",
-    ],
-    X: [
-      "DFS・BFS・線形探索、すべての思考を兼ね備えた稀有なタイプです。",
-      "AIの分析でも判定に迷うほど、バランスの取れた探索者です。",
-      "状況に応じて探索スタイルを切り替える、柔軟な思考の持ち主です。",
-      "一つの型にとらわれない、万能型のアルゴリズム適性が確認されました。",
-    ],
+
+  // ---- DFSタイプのコメント（初心者/研究者/AI口調/ユーモア/RPG風 × 各5 = 25） ----
+  COMMENT_POOL_D: [
+    // 初心者向け
+    "気になる道はとことん進んじゃうタイプだね！",
+    "行き止まりを見ても『とりあえず行ってみよう』と思うタイプみたい。",
+    "新しい道を見つけると、つい奥まで確かめたくなるタイプかも。",
+    "一つの道を最後まで確かめてから次に進む、まっすぐな探検スタイルだよ。",
+    "『とりあえずやってみる』を体現するような動き方でした。",
+    // 研究者風
+    "観測データより、経路選択において深さ優先の傾向が強く見られました。",
+    "未探索領域への遷移が、探索済み領域への回帰よりも高頻度で確認されています。",
+    "行動パターンは、スタックベースの探索アルゴリズムに酷似しています。",
+    "被験者は分岐において常に「最も深い」選択肢を優先する傾向が見られました。",
+    "本行動データは、深さ優先探索(DFS)モデルとの高い一致率を示しています。",
+    // AI口調
+    "行動解析完了。パターン分類：探索優先型。",
+    "……あなたの思考回路、面白いですね。奥へ、奥へ。",
+    "深度探索モード確認。これはこれで一つの正解です。",
+    "被験者の意思決定に一定の法則性を検出しました：『進めるなら進む』。",
+    "興味深い。あなたは迷いなく、闇の奥へ向かっていく。",
+    // ユーモア
+    "行き止まりにぶつかっても『来た道は戻らない』主義のようです。",
+    "宝箱よりも先に、迷路の隅々が気になって仕方がない性格のようです。",
+    "『まだ引き返すには早い』が口癖になっていそうなタイプ。",
+    "迷路の隅っこまで制覇しないと気が済まない、そんな探究心の持ち主。",
+    "帰り道のことは、また今度考えるタイプですね。",
+    // RPG風
+    "『この先に何があるか確かめずにはいられない』――そんな冒険者気質。",
+    "未知のダンジョンほど燃えるタイプの勇者だ。",
+    "仲間より先に、一人で奥へ進んでしまう先陣切りタイプ。",
+    "『行けるところまで行く』——それがあなたの流儀。",
+    "伝説の勇者も、きっと同じように奥へ奥へと突き進んだのだろう。",
+    // 追加（初心者/研究者/AI口調/ユーモア/RPG風）
+    "とにかく『この先どうなってるんだろう』が気になって仕方ない性格みたい。",
+    "被験者の移動経路は、深さ優先探索(DFS)の理論モデルと非常に近い形状を描いています。",
+    "解析完了。あなたの思考は『まず奥まで、話はそれから』のようです。",
+    "行き止まりコレクターの才能があるかもしれません。",
+    "『引き返すのは全部確かめてから』——生粋の一本道タイプの冒険者。",
+  ],
+
+  // ---- BFSタイプのコメント（25） ----
+  COMMENT_POOL_B: [
+    "近くから順番に、しっかり確認していくタイプだね！",
+    "遠回りが少なくて、効率よくゴールへ向かえるタイプみたい。",
+    "『まずは周りから』を大事にする、バランス型の探検スタイル。",
+    "無駄な後戻りが少なくて、まっすぐゴールに向かえていたよ。",
+    "見晴らしの良い進み方で、迷わずゴールできていたね。",
+    "観測データより、最短経路との乖離が極めて小さいことが確認されました。",
+    "移動パターンは幅優先探索(BFS)モデルと高い一致率を示しています。",
+    "被験者は近傍領域を優先的に確認したのち、次の階層へ移行する傾向が見られました。",
+    "行動全体を通して、効率性を重視した意思決定が観測されています。",
+    "探索コストと到達コストのバランスが非常に良好です。",
+    "行動解析完了。パターン分類：効率優先型。",
+    "無駄がない。とても『合理的』な思考回路です。",
+    "最短経路モデルとの一致を確認。これは……優秀です。",
+    "被験者の意思決定に法則性を検出：『近い方から確かめる』。",
+    "興味深い。あなたは迷わず、最適な道を選び続けている。",
+    "『急がば回れ』ではなく『急がば最短』を地で行くタイプ。",
+    "宝箱もゴールも、最短距離で回収する効率派のようです。",
+    "遠回りしている自分を許せないタイプかもしれません。",
+    "迷路すら『最適化』しようとする、生粋の効率主義者。",
+    "無駄な一歩を歩くくらいなら、少し立ち止まって考えるタイプ。",
+    "『最短でゴールへ辿り着く』——そんな戦略家タイプの冒険者。",
+    "地図を読むのが得意な、パーティの道案内役タイプ。",
+    "遠回りは嫌い。最短距離で目的を果たすタイプの英雄。",
+    "『無駄な回り道は避ける』——効率を重んじる冒険者気質。",
+    "最短ルートを見抜く目を持った、まさにナビゲータータイプ。",
+    // 追加（初心者/研究者/AI口調/ユーモア/RPG風）
+    "近くをぱぱっと確認してから動く、テンポの良い探し方だったよ。",
+    "被験者の移動経路は、幅優先探索(BFS)の理論モデルに極めて近い形状を描いています。",
+    "解析完了。あなたの思考は『広く見てから、一番近道を選ぶ』のようです。",
+    "遠回りしている人を見ると、つい教えたくなるタイプかもしれません。",
+    "『最短ルートこそ我が道』——効率を愛する戦略家タイプの冒険者。",
+  ],
+
+  // ---- 線形探索タイプのコメント（25） ----
+  COMMENT_POOL_L: [
+    "一つずつ順番に、丁寧に確認していくタイプだね！",
+    "焦らずじっくり進む、慎重な探検スタイルみたい。",
+    "同じような手順で、コツコツ確かめていくタイプだよ。",
+    "『まず手前から』を大事にする、堅実な進み方だね。",
+    "見落としがないように、順番に確認していくタイプみたい。",
+    "観測データより、分岐選択の順序に高い規則性が確認されました。",
+    "被験者は毎回ほぼ同じ優先順位で選択肢を確認する傾向にあります。",
+    "行動パターンは線形探索(Linear Search)モデルに近い挙動を示しています。",
+    "移動の再現性が高く、手順の一貫性が観測されています。",
+    "被験者は網羅性を重視し、確実性の高い探索を行っています。",
+    "行動解析完了。パターン分類：規則優先型。",
+    "規則正しい。とても『予測しやすい』思考回路です。",
+    "手順の一貫性を確認。これは……堅実です。",
+    "被験者の意思決定に法則性を検出：『順番通りに確かめる』。",
+    "興味深い。あなたは一貫した手順で、着実に前進している。",
+    "『抜け道』より『正攻法』を選びがちなタイプ。",
+    "とりあえず順番に全部見ないと気が済まない性格かも。",
+    "近道を見つけても、律儀に手順を踏んでしまうタイプ。",
+    "『まあ一応、確認だけしておくか』が口癖になっていそう。",
+    "せっかちとは無縁の、じっくり型の探検家。",
+    "『一つずつ確実に』——堅実な戦術を好む冒険者タイプ。",
+    "抜かりのない準備を大切にする、職人肌の冒険者。",
+    "運任せよりも手順を信じる、堅実派の戦略家。",
+    "『慌てず、騒がず、順番に』——そんな渋いスタイルの旅人。",
+    "確実な一歩を積み重ねる、縁の下の力持ちタイプ。",
+    // 追加（初心者/研究者/AI口調/ユーモア/RPG風）
+    "見落としが一番怖い、というタイプの慎重な性格みたい。",
+    "被験者の移動パターンは、線形探索(Linear Search)の理論モデルと高い一致率を示しています。",
+    "解析完了。あなたの思考は『飛ばさず、順番に、確実に』のようです。",
+    "ショートカットを見つけても、律儀に確認作業を続けるタイプかもしれません。",
+    "『一歩ずつ、抜かりなく』——堅実さを何より重んじる旅人タイプ。",
+  ],
+
+  // ---- 特別タイプのコメント ----
+  COMMENT_POOL_X: [
+    "DFS・BFS・線形探索、すべての思考を兼ね備えた稀有なタイプです。",
+    "状況に応じて探索スタイルを使い分ける、柔軟な思考の持ち主のようです。",
+    "一つの型に収まらない、まさに『万能型』の探索者です。",
+    "研究員も驚きの、バランスの取れた思考パターンを確認しました。",
+    "どのアルゴリズムにも偏らない、稀に見るオールラウンダーです。",
+    "被験者データベースの中でも、極めて珍しいタイプに分類されました。",
+    "深く進み、広く見て、丁寧に確かめる——すべてを兼ね備えています。",
+    "これぞ『アルゴリズム博士』と呼ぶにふさわしい探索スタイルです。",
+  ],
+  COMMENT_POOL_R: [
+    "危険な仕掛けを一度も踏まず、安全第一で進んでいました。",
+    "リスクを避けながらも、隠された部屋までしっかり見つけ出しています。",
+    "『石橋を叩いて渡る』を体現するような、堅実な立ち回りでした。",
+    "落とし穴の気配を察知しているかのような、慎重な足取りでした。",
+    "安全に、しかし手は抜かない。バランス感覚に優れた探索者です。",
+    "危険を避けながらも成果はしっかり持ち帰る、頼れるタイプです。",
+    "研究員一同、その慎重さに感心しています。",
+    "危機管理能力の高さが、行動データからうかがえます。",
+  ],
+  COMMENT_POOL_A: [
+    "危険を恐れず、仕掛けにも果敢に飛び込んでいくタイプです。",
+    "落とし穴もワープも、まずは踏んでみるタイプのようです。",
+    "予測不能な行動が、かえって新しい発見につながっていました。",
+    "『まずやってみる』精神が随所に表れています。",
+    "ハプニングすら楽しんでいるような、大胆な探索スタイルでした。",
+    "型にはまらない自由な発想の持ち主のようです。",
+    "リスクを取ってでも新しい体験を求める、冒険者気質です。",
+    "研究員も予測できなかった、ユニークな行動データでした。",
+  ],
+
+  /** アルゴリズムの解説文（⑦小学生でも分かる説明＋図解イメージ＋メリデメ＋実例） */
+  ALGORITHM_INFO: {
+    D: {
+      name: "DFS（深さ優先探索）",
+      emoji: "🌲",
+      text: "一本道を最後まで進み、行き止まりまで行ってから戻る探し方です。迷路で「とりあえず最後まで行ってみよう！」と考える人に近いアルゴリズムです。",
+      scenario: "枝分かれした道を、1つ選んだらそのまま奥まで突き進み、行き止まったら1つ手前に戻ってまた次の道へ――を繰り返す場面で使われます。",
+      merit: "使うメモリ（覚えておく量）が少なくて済み、仕組みがシンプルです。迷路やパズルの「解けるか解けないか」を調べるのが得意です。",
+      demerit: "運が悪いと、遠回りな道ばかり選んでしまい、ゴールまで時間がかかることがあります。最短ルートを見つけるのは苦手です。",
+      example: "迷路の自動生成・数独やパズルの解法探し・将棋やオセロの手を読むプログラムなどで使われています。",
+    },
+    B: {
+      name: "BFS（幅優先探索）",
+      emoji: "🌊",
+      text: "近くから順番に広く探していく方法です。遠回りを減らし、最短ルートを見つけることが得意です。",
+      scenario: "今いる場所から1歩で行ける場所を全部確認し、それから2歩で行ける場所……というように、輪を広げるように探す場面で使われます。",
+      merit: "一番少ない歩数でゴールにたどり着く「最短ルート」を必ず見つけられます。近道を見逃しません。",
+      demerit: "一度に覚えておく場所の数が多くなりやすく、DFSに比べてメモリ（覚えておく量）を多く使います。",
+      example: "カーナビの最短経路探索・SNSの「友達の友達」をたどる機能・路線検索アプリなどで使われています。",
+    },
+    L: {
+      name: "線形探索",
+      emoji: "📋",
+      text: "最初から順番に一つずつ確認していく方法です。確実ですが、データが多いと時間がかかることがあります。",
+      scenario: "リストや名簿を先頭から1件ずつ順番にチェックして、探しているものを見つける場面で使われます。",
+      merit: "仕組みがとても分かりやすく、データが並んでいなくても（順番がバラバラでも）確実に見つけ出せます。",
+      demerit: "データの数が多くなるほど、確認する回数も増えて時間がかかります。効率という点では他の方法に劣ります。",
+      example: "電話帳から名前を1件ずつ探す・忘れ物を1つずつ確認する・簡単なリストの検索処理などで使われています。",
+    },
   },
 
   /** @param {PlayerController} player */
@@ -513,17 +719,36 @@ const Analyzer = {
     let linearScore =
       systematicRatio * 55 + (1 - unexploredRatio) * 25 + Math.min(1, revisitRatio * 1.5) * 20;
 
-    dfsScore = Math.round(Math.max(0, Math.min(100, dfsScore)));
-    bfsScore = Math.round(Math.max(0, Math.min(100, bfsScore)));
-    linearScore = Math.round(Math.max(0, Math.min(100, linearScore)));
+    // ⑩ギミックの利用状況を軽く加味する（危険を厭わない=DFS寄り、慎重=線形寄り）
+    if (player.pitfallHits > 0) dfsScore += 6;
+    if (player.recoveryUsed) linearScore += 5;
+    if (player.pitfallHits > 0) bfsScore -= 3 * player.pitfallHits;
+
+    dfsScore = Math.round(clamp(dfsScore, 0, 100));
+    bfsScore = Math.round(clamp(bfsScore, 0, 100));
+    linearScore = Math.round(clamp(linearScore, 0, 100));
 
     const scores = { D: dfsScore, B: bfsScore, L: linearScore };
     const dominant = Object.keys(scores).reduce((a, b) => (scores[a] >= scores[b] ? a : b));
-    let typeCode = dominant;
-    if (dfsScore >= 65 && bfsScore >= 65 && linearScore >= 65) typeCode = "X";
 
+    let typeCode = dominant;
+    if (dfsScore >= 65 && bfsScore >= 65 && linearScore >= 65) {
+      typeCode = "X"; // 全部高水準ならアルゴリズム博士
+    } else if (player.pitfallHits === 0 && player.doorOpened && Math.abs(player.stepDiff) <= idealSteps * 0.15) {
+      typeCode = "R"; // 危険回避タイプ：罠を踏まず、隠し部屋も見つけ、効率も良い
+    } else if (player.pitfallHits >= 1 || player.warpUsed >= 1) {
+      typeCode = "A"; // 型破りな挑戦者：危険な仕掛けに突っ込んだ・ワープを使った
+    }
+
+    const commentPool = this._commentPoolFor(typeCode);
     const titleIndex = randInt(this.TITLE_POOL[typeCode].length);
-    const commentIndex = randInt(this.COMMENT_POOL[typeCode].length);
+    const commentIndex = randInt(commentPool.length);
+
+    // ⑥「なぜこのタイプと診断されたのか」の根拠（プレイ内容ベース）
+    const reasoning = this._buildReasoning(typeCode, {
+      deadEndRatio, unexploredRatio, revisitRatio, diffRatio, systematicRatio,
+      doorOpened: player.doorOpened, pitfallHits: player.pitfallHits, warpUsed: player.warpUsed,
+    });
 
     return {
       dfsScore,
@@ -533,10 +758,8 @@ const Analyzer = {
       titleIndex,
       commentIndex,
       title: this.TITLE_POOL[typeCode][titleIndex],
-      comment: this.COMMENT_POOL[typeCode][commentIndex],
-      reasons: this._buildReasons(typeCode, {
-        deadEndRatio, unexploredRatio, systematicRatio, revisitRatio, diffRatio, explorationRate,
-      }),
+      comment: commentPool[commentIndex],
+      reasoning,
       stats: {
         totalSteps: player.totalSteps,
         idealSteps,
@@ -544,35 +767,53 @@ const Analyzer = {
         explorationRate: Math.round(explorationRate),
         elapsedSeconds: Math.round(player.elapsedSeconds),
       },
+      gimmicks: {
+        foundKey: player.hasKey,
+        doorOpened: player.doorOpened,
+        pitfallHits: player.pitfallHits,
+        warpUsed: player.warpUsed,
+        recoveryUsed: player.recoveryUsed,
+      },
     };
   },
 
-  /** 「なぜこのタイプだったのか」をプレイ内容の数値に基づいて説明する短文リストを作る */
-  _buildReasons(typeCode, r) {
+  _commentPoolFor(typeCode) {
+    return {
+      D: this.COMMENT_POOL_D, B: this.COMMENT_POOL_B, L: this.COMMENT_POOL_L,
+      X: this.COMMENT_POOL_X, R: this.COMMENT_POOL_R, A: this.COMMENT_POOL_A,
+    }[typeCode] || this.COMMENT_POOL_X;
+  },
+
+  _buildReasoning(typeCode, m) {
     const reasons = [];
-    if (typeCode === "D") {
-      reasons.push(`行き止まりまで進んだ割合が高めでした（目安 ${Math.round(r.deadEndRatio * 100)}%）。`);
-      reasons.push(`未探索の道を優先して選ぶ傾向が見られました（${Math.round(r.unexploredRatio * 100)}%）。`);
-      if (r.revisitRatio > 0.15) reasons.push("探索済みの道へ戻る回数もやや多めでした。");
-    } else if (typeCode === "B") {
-      reasons.push(`最短ルートとの差が小さめでした（最短より約${Math.max(0, Math.round(r.diffRatio * 100))}%増）。`);
-      reasons.push(`探索済みへ戻る回数が少なく、無駄のない移動が多く見られました。`);
-      if (r.explorationRate < 60) reasons.push("必要以上に広く探索せず、効率を優先していました。");
-    } else if (typeCode === "L") {
-      reasons.push(`分岐で最初の選択肢を選ぶ割合が高めでした（${Math.round(r.systematicRatio * 100)}%）。`);
-      reasons.push("未探索より、決まった順番を優先する傾向が見られました。");
-      if (r.revisitRatio > 0.1) reasons.push("同じ場所を何度か確認しながら進んでいました。");
-    } else {
-      reasons.push("DFS・BFS・線形探索、どの傾向にも大きく偏らないバランス型でした。");
-      reasons.push("状況に応じて選び方を変えているような、柔軟な移動パターンが見られました。");
+    if (typeCode === "D" || typeCode === "X") {
+      if (m.deadEndRatio > 0.35) reasons.push("行き止まりまで進む割合が高かった");
+      if (m.unexploredRatio > 0.55) reasons.push("常に新しい道を優先して選んでいた");
+      if (m.revisitRatio < 0.15) reasons.push("探索済みの場所へ戻る回数が少なかった");
     }
+    if (typeCode === "B" || typeCode === "X") {
+      if (m.diffRatio < 0.2) reasons.push("最短ルートとの差が少なかった");
+      if (m.revisitRatio < 0.15) reasons.push("無駄な後戻りが少なかった");
+    }
+    if (typeCode === "L" || typeCode === "X") {
+      if (m.systematicRatio > 0.5) reasons.push("分岐でいつも同じ順番に選択肢を確認していた");
+    }
+    if (typeCode === "R") {
+      reasons.push("危険な仕掛け（落とし穴）に一度も引っかからなかった");
+      if (m.doorOpened) reasons.push("隠し部屋を安全に見つけ出した");
+    }
+    if (typeCode === "A") {
+      if (m.pitfallHits > 0) reasons.push("落とし穴に落ちてもなお、探索をやめなかった");
+      if (m.warpUsed > 0) reasons.push("ワープなど未知の仕掛けを積極的に利用した");
+    }
+    if (reasons.length === 0) reasons.push("全体的にバランスの取れた探索行動だった");
     return reasons;
   },
 
   /** typeCode + variant番号から称号・コメントを復元する（QRカード表示用） */
   reconstruct(typeCode, titleIndex, commentIndex) {
     const titles = this.TITLE_POOL[typeCode] || this.TITLE_POOL.X;
-    const comments = this.COMMENT_POOL[typeCode] || this.COMMENT_POOL.X;
+    const comments = this._commentPoolFor(typeCode);
     return {
       title: titles[titleIndex % titles.length] || titles[0],
       comment: comments[commentIndex % comments.length] || comments[0],
@@ -584,14 +825,17 @@ const Analyzer = {
 /* ================================================================
    StorageManager
    ----------------------------------------------------------------
-   診断結果の保存・集計を担当する。今はブラウザのlocalStorageに
-   保存しているが、メソッドはすべて async にしてあるため、将来
-   Firebase等のオンラインDBに差し替える場合も、このクラスの中身だけ
-   を書き換えれば他のコードには影響しない設計になっている。
+   診断結果の保存（CRUD）だけを担当するクラス。集計・ランキングの
+   計算は StatisticsManager 側の責務として分離している。
+   今はブラウザのlocalStorageに保存しているが、メソッドはすべて
+   async にしてあるため、将来Firebase等のオンラインDBに差し替える
+   場合も、このクラスの中身だけを書き換えれば他のコードには
+   影響しない設計になっている。
 ================================================================ */
 class StorageManager {
   constructor() {
     this.storageKey = "algo_lab_results_v1";
+    this.bootFlagKey = "algo_lab_boot_seen_v1";
     this.maxRecords = 2000; // 肥大化防止のため保存件数に上限を設ける
     this.available = this._checkAvailable();
   }
@@ -603,13 +847,12 @@ class StorageManager {
       localStorage.removeItem(testKey);
       return true;
     } catch (e) {
-      // プライベートブラウジング等でlocalStorageが使えない場合の保険
       console.warn("localStorageが利用できないため、統計は保存されません。", e);
       return false;
     }
   }
 
-  /** 1件の診断結果を保存する */
+  /** 1件の診断結果を保存する（過去の履歴は書き換えない・追記のみ） */
   async saveResult(record) {
     if (!this.available) return null;
     const all = await this.getAllResults();
@@ -640,33 +883,68 @@ class StorageManager {
     return all.find((r) => r.id === id) || null;
   }
 
-  /** 集計統計（歴代人数・平均値・タイプ割合・各種ランキング）を計算する */
+  /** ②SYSTEM BOOT演出を既に見たことがあるか */
+  hasSeenBoot() {
+    if (!this.available) return false;
+    try {
+      return localStorage.getItem(this.bootFlagKey) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+  markBootSeen() {
+    if (!this.available) return;
+    try {
+      localStorage.setItem(this.bootFlagKey, "1");
+    } catch (e) { /* 保存できなくても致命的ではないので無視する */ }
+  }
+
+  /** 設定画面からの「履歴をリセットする」操作で使用する */
+  async clearAllResults() {
+    if (!this.available) return false;
+    try {
+      localStorage.removeItem(this.storageKey);
+      return true;
+    } catch (e) {
+      console.warn("履歴のリセットに失敗しました。", e);
+      return false;
+    }
+  }
+}
+
+
+/* ================================================================
+   StatisticsManager
+   ----------------------------------------------------------------
+   StorageManagerが保持する記録から、集計値・ランキング・平均値を
+   計算する専門クラス。StorageManagerを差し替えるだけで、この
+   クラスのロジックはそのままオンラインDB集計にも転用できる。
+================================================================ */
+class StatisticsManager {
+  constructor(storageManager) {
+    this.storage = storageManager;
+  }
+
+  /** ④みんなの履歴ページ向けの集計一式 */
   async getAggregateStats() {
-    const all = await this.getAllResults();
+    const all = await this.storage.getAllResults();
     if (all.length === 0) {
       return {
         totalPlayers: 0,
         avgTime: 0,
         avgSteps: 0,
-        avgDfs: 0,
-        avgBfs: 0,
-        avgLinear: 0,
-        typeRatio: { D: 0, B: 0, L: 0, X: 0 },
+        typeRatio: { D: 0, B: 0, L: 0, X: 0, R: 0, A: 0 },
         titleRanking: [],
         fastestRanking: [],
         explorationRanking: [],
-        recentRecords: [],
+        recent: [],
       };
     }
     const totalPlayers = all.length;
     const avgTime = all.reduce((s, r) => s + r.elapsedSeconds, 0) / totalPlayers;
     const avgSteps = all.reduce((s, r) => s + r.steps, 0) / totalPlayers;
-    const avgDfs = all.reduce((s, r) => s + (r.dfsScore || 0), 0) / totalPlayers;
-    const avgBfs = all.reduce((s, r) => s + (r.bfsScore || 0), 0) / totalPlayers;
-    const avgLinear = all.reduce((s, r) => s + (r.linearScore || 0), 0) / totalPlayers;
-    const recentRecords = [...all].reverse().slice(0, 20);
 
-    const typeCounts = { D: 0, B: 0, L: 0, X: 0 };
+    const typeCounts = { D: 0, B: 0, L: 0, X: 0, R: 0, A: 0 };
     all.forEach((r) => { typeCounts[r.typeCode] = (typeCounts[r.typeCode] || 0) + 1; });
     const typeRatio = {};
     Object.keys(typeCounts).forEach((k) => {
@@ -682,95 +960,61 @@ class StorageManager {
 
     const fastestRanking = [...all].sort((a, b) => a.elapsedSeconds - b.elapsedSeconds).slice(0, 10);
     const explorationRanking = [...all].sort((a, b) => b.explorationRate - a.explorationRate).slice(0, 10);
+    const recent = [...all].sort((a, b) => b.timestamp - a.timestamp).slice(0, 20);
 
+    return { totalPlayers, avgTime, avgSteps, typeRatio, titleRanking, fastestRanking, explorationRanking, recent };
+  }
+
+  /** ⑤診断画面で「みんなの平均」と比較するための平均スコア */
+  async getAverageScores() {
+    const all = await this.storage.getAllResults();
+    if (all.length === 0) return null; // まだ誰も遊んでいなければ比較できない
+    const n = all.length;
     return {
-      totalPlayers, avgTime, avgSteps, avgDfs, avgBfs, avgLinear,
-      typeRatio, titleRanking, fastestRanking, explorationRanking, recentRecords,
+      avgDfs: all.reduce((s, r) => s + r.dfsScore, 0) / n,
+      avgBfs: all.reduce((s, r) => s + r.bfsScore, 0) / n,
+      avgLinear: all.reduce((s, r) => s + r.linearScore, 0) / n,
+      sampleSize: n,
     };
   }
 }
 
 
 /* ================================================================
-   LogManager
+   SettingsManager
    ----------------------------------------------------------------
-   「研究所らしさ」の演出だけを担当するクラス。ゲームの判定・スコア
-   には一切影響しない。画面隅の常時ログ表示（ティッカー）と、
-   ランダムに浮かぶポップアップ（トースト）の2種類を管理する。
+   ④設定画面で扱う「端末ごとの表示設定」を管理するクラス。
+   localStorageに保存し、次回アクセス時も設定を引き継ぐ。
 ================================================================ */
-class LogManager {
+class SettingsManager {
   constructor() {
-    this.tickerMessages = [
-      "Collecting Data...",
-      "Analyzing Behavior...",
-      "Behavior Recording...",
-      "Unknown Pattern Detected...",
-      "Branch Decision Logged...",
-      "Exploration Data Saved...",
-      "Tracking Movement Vector...",
-      "Decision Tree Updating...",
-      "Pathfinding Signature Captured...",
-      "Subject Response Logged...",
-      "Cross-referencing Dataset...",
-      "Behavioral Model Syncing...",
-      "Anomaly Score Calculating...",
-      "Sampling Interval OK...",
-      "Node Traversal Logged...",
-      "Cognitive Pattern Sampling...",
-    ];
-    this.toastMessages = [
-      "行動記録更新",
-      "探索率解析中",
-      "未知パターン検出",
-      "思考モデル更新",
-      "AI学習完了",
-      "データ同期中",
-      "研究ログ保存",
-      "分岐選択を記録",
-      "被験者データ照合中",
-    ];
-    this.tickerHandle = null;
-    this.toastHandle = null;
+    this.key = "algo_lab_settings_v1";
+    this.defaults = { reduceMotion: false };
+    this.current = this._load();
   }
 
-  start() {
-    this.stop();
-    const tickerEl = document.getElementById("lab-log-ticker");
-    if (tickerEl) tickerEl.classList.remove("hidden");
-    this._tickTicker();
-    this.tickerHandle = setInterval(() => this._tickTicker(), 2600 + randInt(2200));
-    this._scheduleToast();
+  _load() {
+    try {
+      const raw = localStorage.getItem(this.key);
+      return raw ? { ...this.defaults, ...JSON.parse(raw) } : { ...this.defaults };
+    } catch (e) {
+      return { ...this.defaults };
+    }
+  }
+  _save() {
+    try {
+      localStorage.setItem(this.key, JSON.stringify(this.current));
+    } catch (e) { /* 保存できなくても致命的ではないので無視する */ }
   }
 
-  stop() {
-    if (this.tickerHandle) clearInterval(this.tickerHandle);
-    if (this.toastHandle) clearTimeout(this.toastHandle);
-    this.tickerHandle = null;
-    this.toastHandle = null;
-    const tickerEl = document.getElementById("lab-log-ticker");
-    if (tickerEl) tickerEl.classList.add("hidden");
-    const toastEl = document.getElementById("ai-toast");
-    if (toastEl) toastEl.classList.remove("show");
+  get(key) { return this.current[key]; }
+  set(key, value) {
+    this.current[key] = value;
+    this._save();
   }
-
-  _tickTicker() {
-    const el = document.getElementById("lab-log-text");
-    if (el) el.textContent = pickRandom(this.tickerMessages);
-  }
-
-  _scheduleToast() {
-    this.toastHandle = setTimeout(() => {
-      this._showToast();
-      this._scheduleToast();
-    }, 6000 + randInt(6000));
-  }
-
-  _showToast() {
-    const el = document.getElementById("ai-toast");
-    if (!el) return;
-    el.textContent = pickRandom(this.toastMessages);
-    el.classList.add("show");
-    setTimeout(() => el.classList.remove("show"), 1800);
+  toggle(key) {
+    this.set(key, !this.current[key]);
+    return this.current[key];
   }
 }
 
@@ -1037,43 +1281,21 @@ SimpleQR.ALIGNMENT_CENTER = { 2: [18, 18], 3: [22, 22], 4: [26, 26], 5: [30, 30]
    ----------------------------------------------------------------
    診断カードのURL組み立て・QRコード生成・画面への描画、および
    QR経由でアクセスされた際のパラメータ解析を担当する。
-   ----------------------------------------------------------------
-   【修正のポイント】
-   以前はURLの「#(ハッシュ)」部分にデータを載せていたが、QR読み取り
-   アプリや一部ブラウザの組み合わせによってはハッシュ部分が引き継がれず
-   「読み取れるのに何も表示されない」という不具合につながっていた。
-   ハッシュはあくまでクライアント側だけの情報として扱われることが
-   多く、外部アプリ間の受け渡しで欠落しやすいため、より互換性が高い
-   「?(クエリパラメータ)」方式に変更している。
-   また、GitHub Pages等にアップロードした場合でも正しく動くよう、
-   現在表示中のページの origin + pathname を基準にURLを組み立てる
-   （相対パスやローカルファイルパスに依存しない）。
-   将来オンライン保存に対応する場合は、id パラメータだけを渡し、
-   QRManager.parseCardParams() の中で「idからサーバーに問い合わせる」
-   処理へ差し替えれば良いように、idも必ず同梱している。
+   容量(約108バイト)を超える場合は自動でURLを短縮し、それでも
+   収まらない場合はQR化を諦めてテキストリンクを表示することで、
+   「読み取れるのに何も表示されない」壊れたQRを絶対に作らない。
 ================================================================ */
 const QRManager = {
-  // QRコード(型番1〜5)は最大でも108バイト程度しか収まらないため、
-  // ペイロードは必要最小限に絞り込む。「id」はローカル保存の照合キー
-  // としては便利だが、QRコードのURLに載せる必須情報ではないため含めない
-  // （URLが長くなり、長いGitHub Pagesのパスと合わさると入り切らなくなる
-  //   おそれがあるため）。将来オンライン保存に対応する場合は、下記の
-  //   ように「id」だけを載せる軽量な形式に切り替えれば良い設計にしている。
-  // QRコード(型番1〜5・レベルL)に安全に収まる上限バイト数。
-  // 規格上の最大は108バイトだが、余裕を持って100バイトを基準にする。
   QR_SAFE_BYTE_LIMIT: 100,
 
-  /** location.origin + location.pathname から「まっさらなベースURL」を作る（末尾のindex.htmlは短縮のため省く） */
   _buildBaseUrl() {
     let base = location.origin + location.pathname;
     if (base.endsWith("/index.html")) base = base.slice(0, -"index.html".length);
     return base;
   },
 
-  /** 診断結果レコードから、診断カードを直接開けるURLを組み立てる */
   buildCardUrl(record) {
     const base = this._buildBaseUrl();
-
     const params = new URLSearchParams();
     params.set("ty", record.typeCode);
     params.set("ti", record.titleIndex);
@@ -1085,29 +1307,19 @@ const QRManager = {
     params.set("st", record.steps);
     params.set("pid", record.pid);
     const fullUrl = `${base}?${params.toString()}`;
-    if (new TextEncoder().encode(fullUrl).length <= this.QR_SAFE_BYTE_LIMIT) {
-      return fullUrl;
-    }
+    if (new TextEncoder().encode(fullUrl).length <= this.QR_SAFE_BYTE_LIMIT) return fullUrl;
 
-    // 診断データ全部だと収まらない長いホスティングパスの場合は、将来の
-    // オンライン化を見据えた「idだけを渡す」軽量URLにフォールバックする
     if (record.id) {
       const shortParams = new URLSearchParams();
       shortParams.set("id", record.id);
       const shortUrl = `${base}?${shortParams.toString()}`;
-      if (new TextEncoder().encode(shortUrl).length <= this.QR_SAFE_BYTE_LIMIT) {
-        return shortUrl;
-      }
+      if (new TextEncoder().encode(shortUrl).length <= this.QR_SAFE_BYTE_LIMIT) return shortUrl;
     }
-    // それでも収まらない場合（非常に長いホスティングパス等）は、そのまま返す。
-    // renderInto側でQRコード化を諦め、URLをテキストリンクとして表示する。
     return fullUrl;
   },
 
-  /** location.search からカード情報を復元する。カード情報が無ければ null */
   parseCardParams(search) {
     const params = new URLSearchParams(search);
-    // 「ty」と「pid」の両方があれば、診断データがそのままURLに載っている形式
     if (params.get("ty") && params.get("pid")) {
       return {
         typeCode: params.get("ty") || "X",
@@ -1122,29 +1334,21 @@ const QRManager = {
         id: params.get("id") || "",
       };
     }
-    // 「id」だけの軽量形式の場合は、呼び出し側でStorageManagerから引き当てる
-    if (params.get("id")) {
-      return { idOnly: true, id: params.get("id") };
-    }
+    if (params.get("id")) return { idOnly: true, id: params.get("id") };
     return null;
   },
 
-  /** QRコードを生成し、指定した要素に描画する（失敗しても画面を壊さない） */
   renderInto(wrapEl, fallbackEl, url) {
     wrapEl.innerHTML = "";
     fallbackEl.classList.add("hidden");
 
     const byteLength = new TextEncoder().encode(url).length;
     if (byteLength > this.QR_SAFE_BYTE_LIMIT) {
-      // ここでQRコード化すると内部で自動的に切り詰められ「読み取れるのに
-      // 何も表示されない（＝壊れたURL）」QRコードになってしまうため、
-      // 無理にQR化はせず、URLをそのままテキストリンクとして案内する。
       console.warn("URLが長すぎるためQRコード化を見送り、テキストリンクを表示します。");
       fallbackEl.textContent = url;
       fallbackEl.classList.remove("hidden");
       return;
     }
-
     try {
       const qr = new SimpleQR(url);
       const canvas = document.createElement("canvas");
@@ -1152,8 +1356,6 @@ const QRManager = {
       wrapEl.appendChild(canvas);
       fallbackEl.textContent = url;
     } catch (err) {
-      // QR生成に失敗しても、URLをテキストで表示する代替表示にすることで
-      // 「エラーで画面が壊れる」ことだけは絶対に避ける
       console.error("QR生成に失敗しました:", err);
       fallbackEl.textContent = url;
       fallbackEl.classList.remove("hidden");
@@ -1163,10 +1365,84 @@ const QRManager = {
 
 
 /* ================================================================
+   LogManager
+   ----------------------------------------------------------------
+   ①研究所ログのティッカー表示と、⑫ランダムなポップアップ演出を
+   担当する。世界観を盛り上げるための純粋な演出であり、ゲームの
+   判定やスコアには一切影響しない。
+================================================================ */
+class LogManager {
+  constructor() {
+    this.tickerLines = [
+      "Collecting Data...", "Analyzing Behavior...", "Behavior Recording...",
+      "Unknown Pattern Detected...", "Branch Decision Logged...", "Exploration Data Saved...",
+      "Tracking Movement...", "Synchronizing Logs...", "Cross-referencing Patterns...",
+      "Behavior Model Updating...", "Subject Response Nominal...", "Path Deviation Logged...",
+      "Decision Tree Expanding...", "Cognitive Pattern Sampling...", "Node Traversal Recorded...",
+      "Signal Noise: Low...", "Memory Buffer Stable...", "Awaiting Next Action...",
+      "Anomaly Scan: Clear...", "Data Stream Stable...",
+      "Thinking Pattern Updated...", "Memory Recording...", "AI Learning...",
+      "Behavior Classification...", "Node Analysis...", "Data Synchronizing...",
+    ];
+    this.popupLines = [
+      "行動記録更新", "探索率解析中", "未知パターン検出", "思考モデル更新",
+      "AI学習完了", "データ同期中", "研究ログ保存", "分岐選択を記録",
+      "観測データ更新中", "被験者行動を記録中", "Memory Saved", "Behavior Matched",
+    ];
+    this.tickerHandle = null;
+    this.popupTimeoutHandle = null;
+  }
+
+  startTicker(elementId, minMs = 2500, maxMs = 4000) {
+    this.stopTicker();
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const tick = () => {
+      el.textContent = pickRandom(this.tickerLines);
+      const delay = minMs + Math.random() * (maxMs - minMs);
+      this.tickerHandle = setTimeout(tick, delay);
+    };
+    tick();
+  }
+  stopTicker() {
+    if (this.tickerHandle) clearTimeout(this.tickerHandle);
+    this.tickerHandle = null;
+  }
+
+  startPopups(elementId, minMs = 9000, maxMs = 17000) {
+    this.stopPopups();
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const schedule = () => {
+      const delay = minMs + Math.random() * (maxMs - minMs);
+      this.popupTimeoutHandle = setTimeout(() => {
+        el.textContent = pickRandom(this.popupLines);
+        el.classList.remove("hidden");
+        el.classList.remove("show");
+        void el.offsetWidth;
+        el.classList.add("show");
+        setTimeout(() => { el.classList.add("hidden"); el.classList.remove("show"); }, 2400);
+        schedule();
+      }, delay);
+    };
+    schedule();
+  }
+  stopPopups() {
+    if (this.popupTimeoutHandle) clearTimeout(this.popupTimeoutHandle);
+    this.popupTimeoutHandle = null;
+  }
+
+  stop() {
+    this.stopTicker();
+    this.stopPopups();
+  }
+}
+
+
+/* ================================================================
    Renderer（キャンバス描画の共通処理）
 ================================================================ */
 const Renderer = {
-  /** ダンジョン本体を描画する（探索済みマスのみ表示＝霧効果） */
   drawDungeon(ctx, maze, revealedSet, player, cellPx) {
     const w = maze.cols * cellPx;
     const h = maze.rows * cellPx;
@@ -1194,21 +1470,28 @@ const Renderer = {
         if (cell.E) { ctx.moveTo(x + cellPx, y); ctx.lineTo(x + cellPx, y + cellPx); }
         ctx.stroke();
 
-        // 宝箱：取得済みなら消して「取得したこと」が誰でも分かるようにする
+        // 宝箱：取得済みなら消す
         if (c === maze.treasure.c && r === maze.treasure.r && !player.treasureCollected) {
           ctx.fillStyle = "#ffce54";
           ctx.fillRect(x + cellPx * 0.28, y + cellPx * 0.36, cellPx * 0.44, cellPx * 0.34);
           ctx.fillStyle = "#8a6a1d";
           ctx.fillRect(x + cellPx * 0.28, y + cellPx * 0.36, cellPx * 0.44, cellPx * 0.08);
         }
-        // ゴール：宝箱と間違えないよう、チェック柄のRPG風フラッグにする
+        // ゴール：チェック柄のRPG風フラッグ
         if (c === maze.goal.c && r === maze.goal.r) {
           Renderer._drawGoalFlag(ctx, x, y, cellPx);
         }
+
+        // ⑩マップギミックの描画
+        const gimmick = maze.gimmickTypeAt(c, r);
+        if (gimmick === "key" && !player.hasKey) Renderer._drawKey(ctx, x, y, cellPx);
+        if (gimmick === "door" && !player.doorOpened) Renderer._drawDoor(ctx, x, y, cellPx);
+        if (gimmick === "warpA" || gimmick === "warpB") Renderer._drawWarp(ctx, x, y, cellPx);
+        if (gimmick === "pitfall") Renderer._drawPitfall(ctx, x, y, cellPx);
+        if (gimmick === "recovery" && !player.recoveryUsed) Renderer._drawRecovery(ctx, x, y, cellPx);
       }
     }
 
-    // プレイヤー（ピクセル風の四角＋目）
     const px = player.drawC * cellPx;
     const py = player.drawR * cellPx;
     ctx.fillStyle = "#4deeea";
@@ -1217,28 +1500,28 @@ const Renderer = {
     ctx.fillRect(px + cellPx * 0.34, py + cellPx * 0.36, cellPx * 0.1, cellPx * 0.1);
     ctx.fillRect(px + cellPx * 0.56, py + cellPx * 0.36, cellPx * 0.1, cellPx * 0.1);
 
-    // 宝箱を持っている間は、頭上に小さな目印を表示する（見た目でも取得済みと分かるように）
     if (player.treasureCollected) {
       ctx.fillStyle = "#ffce54";
       ctx.fillRect(px + cellPx * 0.36, py - cellPx * 0.06, cellPx * 0.28, cellPx * 0.16);
     }
+    if (player.hasKey) {
+      ctx.fillStyle = "#ffe27a";
+      ctx.beginPath();
+      ctx.arc(px + cellPx * 0.78, py + cellPx * 0.06, cellPx * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+    }
   },
 
-  /** RPG風のゴール旗（チェック柄）を描く。宝箱（四角い箱）とはっきり区別できる見た目にする */
   _drawGoalFlag(ctx, x, y, cellPx) {
     const poleX = x + cellPx * 0.32;
     const poleTopY = y + cellPx * 0.16;
     const poleBottomY = y + cellPx * 0.86;
-
-    // 旗ざお
     ctx.strokeStyle = "#d8d2c2";
     ctx.lineWidth = Math.max(2, cellPx * 0.06);
     ctx.beginPath();
     ctx.moveTo(poleX, poleTopY);
     ctx.lineTo(poleX, poleBottomY);
     ctx.stroke();
-
-    // 旗（チェック柄でゴールらしさを演出）
     const flagW = cellPx * 0.4;
     const flagH = cellPx * 0.28;
     const half = flagH / 2;
@@ -1248,13 +1531,61 @@ const Renderer = {
     ctx.fillStyle = "#0a0e17";
     ctx.fillRect(poleX, poleTopY, halfW, half);
     ctx.fillRect(poleX + halfW, poleTopY + half, halfW, half);
-
-    // 台座
     ctx.fillStyle = "#26314f";
     ctx.fillRect(poleX - cellPx * 0.08, poleBottomY - cellPx * 0.03, cellPx * 0.24, cellPx * 0.06);
   },
 
-  /** ミニマップ描画：全体像を薄く、探索済み＆プレイヤーを強調 */
+  _drawKey(ctx, x, y, cellPx) {
+    const cx = x + cellPx * 0.5, cy = y + cellPx * 0.42;
+    ctx.fillStyle = "#ffe27a";
+    ctx.beginPath();
+    ctx.arc(cx - cellPx * 0.12, cy, cellPx * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(cx - cellPx * 0.02, cy - cellPx * 0.04, cellPx * 0.26, cellPx * 0.08);
+    ctx.fillRect(cx + cellPx * 0.14, cy + cellPx * 0.02, cellPx * 0.06, cellPx * 0.1);
+  },
+
+  _drawDoor(ctx, x, y, cellPx) {
+    ctx.strokeStyle = "#c9a6ff";
+    ctx.lineWidth = Math.max(2, cellPx * 0.06);
+    ctx.strokeRect(x + cellPx * 0.28, y + cellPx * 0.2, cellPx * 0.44, cellPx * 0.6);
+    ctx.fillStyle = "#c9a6ff";
+    ctx.beginPath();
+    ctx.arc(x + cellPx * 0.5, y + cellPx * 0.5, cellPx * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  _drawWarp(ctx, x, y, cellPx) {
+    const cx = x + cellPx * 0.5, cy = y + cellPx * 0.5;
+    ctx.strokeStyle = "#ff6bd6";
+    ctx.lineWidth = Math.max(2, cellPx * 0.05);
+    ctx.beginPath();
+    ctx.arc(cx, cy, cellPx * 0.24, 0, Math.PI * 1.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, cellPx * 0.12, 0, Math.PI * 2);
+    ctx.stroke();
+  },
+
+  _drawPitfall(ctx, x, y, cellPx) {
+    const cx = x + cellPx * 0.5, cy = y + cellPx * 0.5;
+    ctx.fillStyle = "#3a0d0d";
+    ctx.beginPath();
+    ctx.arc(cx, cy, cellPx * 0.26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#120202";
+    ctx.beginPath();
+    ctx.arc(cx, cy, cellPx * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  _drawRecovery(ctx, x, y, cellPx) {
+    const cx = x + cellPx * 0.5, cy = y + cellPx * 0.5;
+    ctx.fillStyle = "#7dffb0";
+    ctx.fillRect(cx - cellPx * 0.05, cy - cellPx * 0.2, cellPx * 0.1, cellPx * 0.4);
+    ctx.fillRect(cx - cellPx * 0.2, cy - cellPx * 0.05, cellPx * 0.4, cellPx * 0.1);
+  },
+
   drawMinimap(ctx, maze, revealedSet, player) {
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
@@ -1282,7 +1613,6 @@ const Renderer = {
     ctx.fillRect(player.drawC * cw, player.drawR * ch, cw - 1, ch - 1);
   },
 
-  /** 結果画面：迷路の外形＋ルートを描画する（経路比較用） */
   drawRoute(canvas, maze, path, color) {
     const ctx = canvas.getContext("2d");
     const size = canvas.clientWidth || 200;
@@ -1336,9 +1666,8 @@ const Renderer = {
 /* ================================================================
    UIManager
    ----------------------------------------------------------------
-   画面切り替え・HUD更新・ポップアップ・REC表示などのDOM操作を
-   一手に引き受けるクラス。GameManagerからは「何を表示したいか」だけを
-   伝えてもらい、実際のDOM操作の詳細はすべてここに閉じ込める。
+   画面切り替え・HUD更新・ポップアップ・REC表示・SYSTEM BOOT演出・
+   エンディング演出など、DOM操作を一手に引き受けるクラス。
 ================================================================ */
 class UIManager {
   showScreen(screenId) {
@@ -1348,17 +1677,10 @@ class UIManager {
     });
   }
 
-  updateSteps(steps) {
-    document.getElementById("hud-steps").textContent = steps;
-  }
-  updateTimer(seconds) {
-    document.getElementById("hud-timer").textContent = formatTime(seconds);
-  }
-  updateMission(text) {
-    document.getElementById("hud-mission").textContent = text;
-  }
+  updateSteps(steps) { document.getElementById("hud-steps").textContent = steps; }
+  updateTimer(seconds) { document.getElementById("hud-timer").textContent = formatTime(seconds); }
+  updateMission(text) { document.getElementById("hud-mission").textContent = text; }
 
-  /** 宝箱の取得状況を、バッジ表示とポップアップの両方ではっきり伝える */
   setTreasureAcquired(acquired) {
     const badge = document.getElementById("treasure-badge");
     const badgeText = document.getElementById("treasure-badge-text");
@@ -1373,14 +1695,10 @@ class UIManager {
   showTreasurePopup() {
     const popup = document.getElementById("treasure-popup");
     popup.classList.remove("hidden");
-    // アニメーションを毎回最初から再生させるためのリフロー強制
     popup.classList.remove("show");
     void popup.offsetWidth;
     popup.classList.add("show");
-    setTimeout(() => {
-      popup.classList.add("hidden");
-      popup.classList.remove("show");
-    }, 1800);
+    setTimeout(() => { popup.classList.add("hidden"); popup.classList.remove("show"); }, 1800);
   }
 
   showFloatingMessage(text) {
@@ -1392,29 +1710,39 @@ class UIManager {
     el.style.animation = "";
   }
 
-  /** ゲーム開始時：録画中(赤・点滅)の表示にする */
   setRecRecording() {
     const el = document.getElementById("rec-indicator");
     el.classList.remove("hidden", "stopped");
     document.getElementById("rec-text").textContent = "REC ● OBSERVING";
   }
-  /** クリア後：録画終了(グレー)の表示に切り替える */
   setRecStopped() {
     const el = document.getElementById("rec-indicator");
     el.classList.remove("hidden");
     el.classList.add("stopped");
     document.getElementById("rec-text").textContent = "REC ■ ANALYSIS DONE";
   }
-  hideRec() {
-    document.getElementById("rec-indicator").classList.add("hidden");
-  }
+  hideRec() { document.getElementById("rec-indicator").classList.add("hidden"); }
 
   showLabBadge(subjectId) {
     document.getElementById("lab-id-number").textContent = subjectId;
     document.getElementById("lab-id-badge").classList.remove("hidden");
   }
-  hideLabBadge() {
-    document.getElementById("lab-id-badge").classList.add("hidden");
+  hideLabBadge() { document.getElementById("lab-id-badge").classList.add("hidden"); }
+
+  /** ②SYSTEM BOOT演出（初回起動時のみ、約3秒） */
+  playBootSequence() {
+    return new Promise((resolve) => {
+      const lines = ["boot-line-1", "boot-line-2", "boot-line-3", "boot-line-3b"];
+      lines.forEach((id, i) => {
+        setTimeout(() => document.getElementById(id).classList.add("show"), 200 + i * 350);
+      });
+      setTimeout(() => {
+        document.getElementById("boot-bar-inner").style.width = "100%";
+      }, 500);
+      setTimeout(() => document.getElementById("boot-line-4").classList.add("show"), 2500);
+      setTimeout(() => document.getElementById("boot-line-5").classList.add("show"), 2850);
+      setTimeout(resolve, 3200);
+    });
   }
 
   /** クリア後の「解析中」演出（データ収集→解析→プログレスバー→解析完了） */
@@ -1432,7 +1760,6 @@ class UIManager {
 
       const totalDurationMs = 3000;
       const startTime = performance.now();
-
       const msgInterval = setInterval(() => {
         msgIndex++;
         if (msgIndex < messages.length) line.textContent = messages[msgIndex];
@@ -1450,40 +1777,141 @@ class UIManager {
           line.textContent = "解析完了";
           bar.style.width = "100%";
           percentText.textContent = "100%";
-          setTimeout(() => this._playRevealSequence().then(resolve), 500);
+          setTimeout(resolve, 400);
         }
       };
       requestAnimationFrame(tick);
     });
   }
 
-  /** 解析完了後の「暗転→告白」エンディング演出 */
-  _playRevealSequence() {
+  /** ⑧エンディング演出：「実はこういうゲームでした」の種明かし */
+  playRevealSequence() {
     return new Promise((resolve) => {
-      const progressWrap = document.getElementById("analyzing-progress-wrap");
-      const reveal = document.getElementById("analyzing-reveal");
-      const lineIds = ["reveal-line-1", "reveal-line-2", "reveal-line-3"];
+      this.showScreen("screen-reveal");
+      const el = document.getElementById("reveal-line");
+      const lines = [
+        { text: "……解析が完了しました。", emphasis: false },
+        { text: "実はこのゲームは、", emphasis: false },
+        { text: "「ダンジョンで宝を探すゲーム」ではありませんでした。", emphasis: false },
+        { text: "あなたは、AI研究所の被験者でした。", emphasis: true },
+        { text: "MISSION COMPLETE", emphasis: true },
+        { text: "Behavior Analysis Finished", emphasis: true },
+      ];
+      let i = 0;
+      const showNext = () => {
+        if (i >= lines.length) { setTimeout(resolve, 400); return; }
+        const { text, emphasis } = lines[i];
+        el.textContent = text;
+        el.classList.toggle("emphasis", emphasis);
+        el.classList.remove("show");
+        void el.offsetWidth;
+        el.classList.add("show");
+        i++;
+        setTimeout(showNext, 1800);
+      };
+      showNext();
+    });
+  }
+}
 
-      lineIds.forEach((id) => document.getElementById(id).classList.remove("reveal-show"));
-      progressWrap.style.opacity = "0";
 
-      setTimeout(() => {
-        reveal.classList.remove("hidden");
-        void reveal.offsetWidth;
-        reveal.classList.add("show");
-        lineIds.forEach((id, i) => {
-          setTimeout(() => document.getElementById(id).classList.add("reveal-show"), 300 + i * 500);
-        });
-      }, 350);
+/* ================================================================
+   EndingManager
+   ----------------------------------------------------------------
+   ⑪診断結果画面を「終える」ときにだけ流れる、研究所コンソール風の
+   エンディング演出を専門に担当するクラス。タイプライター表示・
+   点滅カーソル・ENTER/SPACE/タップでのスキップ・展示モードでの
+   自動タイムアウトをすべてここに閉じ込めている。
+================================================================ */
+class EndingManager {
+  constructor() {
+    this.IDLE_TIMEOUT_MS = 30000; // 展示モード：30秒操作が無ければ自動でタイトルへ
+    this.CHAR_DELAY_MS = 28;
+    this.LINE_PAUSE_MS = 380;
+  }
 
-      setTimeout(() => {
-        reveal.classList.remove("show");
-        setTimeout(() => {
-          reveal.classList.add("hidden");
-          progressWrap.style.opacity = "";
-          resolve();
-        }, 500);
-      }, 2700);
+  /**
+   * エンディングを再生する。ENTER/SPACE/タップ、または30秒の無操作で
+   * 解決(resolve)される Promise を返す。
+   * @param {string} subjectId 今回の被験者No.
+   */
+  play(subjectId) {
+    return new Promise((resolve) => {
+      const logEl = document.getElementById("ending-log");
+      const promptEl = document.getElementById("ending-prompt");
+      logEl.textContent = "";
+      promptEl.classList.add("hidden");
+
+      const lines = [
+        "━━━━━━━━━━━━━━",
+        "Experiment Finished",
+        "━━━━━━━━━━━━━━",
+        "被験者No.",
+        String(subjectId),
+        "━━━━━━━━━━━━━━",
+        "行動データ",
+        "保存しました。",
+        "━━━━━━━━━━━━━━",
+        "AI学習モデルへ",
+        "探索データを送信しました。",
+        "━━━━━━━━━━━━━━",
+        "ご協力ありがとうございました。",
+        "━━━━━━━━━━━━━━",
+        "STATUS",
+        "COMPLETE",
+        "━━━━━━━━━━━━━━",
+      ];
+
+      let finished = false;
+      let charTimerHandle = null;
+      let idleTimeoutHandle = null;
+
+      const cleanup = () => {
+        if (finished) return;
+        finished = true;
+        if (charTimerHandle) clearTimeout(charTimerHandle);
+        if (idleTimeoutHandle) clearTimeout(idleTimeoutHandle);
+        window.removeEventListener("keydown", onKey);
+        window.removeEventListener("pointerdown", onPointer);
+      };
+      const finishNow = () => { cleanup(); resolve(); };
+      const onKey = (e) => {
+        if (!promptEl.classList.contains("hidden") && (e.key === "Enter" || e.key === " ")) finishNow();
+      };
+      const onPointer = () => {
+        if (!promptEl.classList.contains("hidden")) finishNow();
+      };
+      window.addEventListener("keydown", onKey);
+      window.addEventListener("pointerdown", onPointer);
+
+      // ⑨展示モード：万一プロンプトが出た後も操作が無ければ、30秒で強制的に終える
+      idleTimeoutHandle = setTimeout(finishNow, this.IDLE_TIMEOUT_MS);
+
+      // ---- タイプライター表示 ----
+      let lineIndex = 0;
+      let charIndex = 0;
+      const typeStep = () => {
+        if (finished) return;
+        if (lineIndex >= lines.length) {
+          setTimeout(() => {
+            if (finished) return;
+            promptEl.classList.remove("hidden");
+          }, 3000);
+          return;
+        }
+        const line = lines[lineIndex];
+        if (charIndex === 0 && logEl.textContent.length > 0) logEl.textContent += "\n";
+        logEl.textContent += line[charIndex];
+        charIndex++;
+        if (charIndex >= line.length) {
+          lineIndex++;
+          charIndex = 0;
+          charTimerHandle = setTimeout(typeStep, this.LINE_PAUSE_MS);
+        } else {
+          charTimerHandle = setTimeout(typeStep, this.CHAR_DELAY_MS);
+        }
+      };
+      typeStep();
     });
   }
 }
@@ -1492,13 +1920,12 @@ class UIManager {
 /* ================================================================
    ResultRenderer
    ----------------------------------------------------------------
-   診断結果画面・統計ページ・診断カード画面へのデータ描画をまとめて
-   担当する。GameManagerからデータを受け取り、DOMへ反映するだけの
-   「見た目専門」のクラス。
+   診断結果画面・統計ページ・診断カード・アルゴリズム解説画面への
+   データ描画をまとめて担当する「見た目専門」のクラス。
 ================================================================ */
 class ResultRenderer {
-  /** 診断結果画面を描画する */
-  renderResult(record, maze, player) {
+  /** 診断結果画面を描画する（⑤みんなの平均との比較つき） */
+  renderResult(record, maze, player, averages) {
     document.getElementById("result-title").textContent = record.title;
     document.getElementById("result-ai-comment").textContent = record.comment;
     document.getElementById("result-subject-id").textContent = record.pid;
@@ -1506,6 +1933,10 @@ class ResultRenderer {
     this._animateBar("bar-dfs", "pct-dfs", record.dfsScore);
     this._animateBar("bar-bfs", "pct-bfs", record.bfsScore);
     this._animateBar("bar-linear", "pct-linear", record.linearScore);
+
+    this._renderCompareLine("compare-dfs", record.dfsScore, averages ? averages.avgDfs : null);
+    this._renderCompareLine("compare-bfs", record.bfsScore, averages ? averages.avgBfs : null);
+    this._renderCompareLine("compare-linear", record.linearScore, averages ? averages.avgLinear : null);
 
     document.getElementById("stat-time").textContent = formatTime(record.elapsedSeconds);
     document.getElementById("stat-steps").textContent = record.steps;
@@ -1523,21 +1954,25 @@ class ResultRenderer {
     Renderer.drawRoute(document.getElementById("route-canvas-dfs"), maze, dfsPath, "#ff2e6d");
   }
 
-  /** 「みんなとの比較」行を描画する */
-  renderComparison(record, aggStats) {
-    this._renderCompareRow("compare-dfs", record.dfsScore, aggStats.avgDfs);
-    this._renderCompareRow("compare-bfs", record.bfsScore, aggStats.avgBfs);
-    this._renderCompareRow("compare-linear", record.linearScore, aggStats.avgLinear);
-  }
-  _renderCompareRow(elementId, myScore, avgScoreRaw) {
+  _renderCompareLine(elementId, myScore, avgScore) {
     const el = document.getElementById(elementId);
-    const avgScore = Math.round(avgScoreRaw || 0);
-    const diff = myScore - avgScore;
-    let diffText;
-    if (Math.abs(diff) < 1) diffText = "みんなの平均とほぼ同じです";
-    else if (diff > 0) diffText = `平均より${diff}%高いです`;
-    else diffText = `平均より${Math.abs(diff)}%低いです`;
-    el.textContent = `あなた ${myScore}% ／ みんな ${avgScore}% ／ ${diffText}`;
+    if (avgScore === null || avgScore === undefined) {
+      el.textContent = "まだ比較できるデータがありません（あなたが最初の被験者です）";
+      el.className = "compare-line";
+      return;
+    }
+    const diff = Math.round(myScore - avgScore);
+    const avgRounded = Math.round(avgScore);
+    if (diff > 2) {
+      el.textContent = `みんな ${avgRounded}% ／ 平均より ${diff}% 高いです`;
+      el.className = "compare-line higher";
+    } else if (diff < -2) {
+      el.textContent = `みんな ${avgRounded}% ／ 平均より ${Math.abs(diff)}% 低いです`;
+      el.className = "compare-line lower";
+    } else {
+      el.textContent = `みんな ${avgRounded}% ／ 平均とほぼ同じです`;
+      el.className = "compare-line";
+    }
   }
 
   _animateBar(barId, pctId, value) {
@@ -1552,6 +1987,15 @@ class ResultRenderer {
       if (current < value) requestAnimationFrame(step);
     };
     step();
+  }
+
+  /** ⑥アルゴリズム解説画面の「今回あなたがなぜこの診断だったか」欄 */
+  renderExplainPersonal(record) {
+    document.getElementById("explain-your-title").textContent = record.title;
+    const list = document.getElementById("explain-reasons");
+    list.innerHTML = (record.reasoning || [])
+      .map((reason) => `<li>${reason}</li>`)
+      .join("");
   }
 
   /** 診断カード画面（QR読み取り後）を描画する */
@@ -1569,6 +2013,102 @@ class ResultRenderer {
     document.getElementById("card-pct-bfs").textContent = cardData.bfsScore + "%";
     document.getElementById("card-bar-linear").style.width = cardData.linearScore + "%";
     document.getElementById("card-pct-linear").textContent = cardData.linearScore + "%";
+
+    return { title, comment };
+  }
+
+  /**
+   * ⑨SNS投稿を意識した「画像として保存」用のカードをcanvasに描画する。
+   * html2canvas等の外部ライブラリは使わず、Canvas 2D APIで直接描画する。
+   */
+  renderShareCardImage(canvas, cardData, titleText, commentText) {
+    const W = 720, H = 900;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
+
+    // 背景（研究所レポート風のグラデーション＋グリッド）
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, "#0d1424");
+    grad.addColorStop(1, "#05070d");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = "rgba(77,238,234,0.08)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 24) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 24) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+    // 四隅の装飾枠
+    ctx.strokeStyle = "#ffce54";
+    ctx.lineWidth = 4;
+    const cornerLen = 30, pad = 24;
+    [[pad, pad, 1, 1], [W - pad, pad, -1, 1], [pad, H - pad, 1, -1], [W - pad, H - pad, -1, -1]].forEach(([cx, cy, sx, sy]) => {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + cornerLen * sy);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx + cornerLen * sx, cy);
+      ctx.stroke();
+    });
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#4deeea";
+    ctx.font = "bold 20px monospace";
+    ctx.fillText("ALGORITHM RESEARCH LAB", 50, 80);
+    ctx.fillStyle = "#7c8bb0";
+    ctx.font = "14px monospace";
+    ctx.fillText("診断カード / DIAGNOSTIC REPORT", 50, 106);
+
+    ctx.fillStyle = "#ffce54";
+    ctx.font = "bold 40px monospace";
+    ctx.fillText(titleText, 50, 170);
+
+    // コメントの折り返し表示（日本語は文字数ベースで簡易ラップ）
+    ctx.fillStyle = "#e7f1ff";
+    ctx.font = "18px monospace";
+    const wrapped = this._wrapJapanese(commentText, 20);
+    wrapped.forEach((line, i) => ctx.fillText(line, 50, 210 + i * 26));
+
+    // スコアバー
+    const barsTop = 210 + wrapped.length * 26 + 40;
+    const bars = [
+      { label: "DFS", value: Number(cardData.dfsScore) || 0, color: "#ff2e6d" },
+      { label: "BFS", value: Number(cardData.bfsScore) || 0, color: "#4deeea" },
+      { label: "線形探索", value: Number(cardData.linearScore) || 0, color: "#ffce54" },
+    ];
+    bars.forEach((bar, i) => {
+      const y = barsTop + i * 56;
+      ctx.fillStyle = "#7c8bb0";
+      ctx.font = "14px monospace";
+      ctx.fillText(bar.label, 50, y - 8);
+      ctx.fillStyle = "#121b30";
+      ctx.fillRect(50, y, W - 180, 20);
+      ctx.fillStyle = bar.color;
+      ctx.fillRect(50, y, (W - 180) * clamp(bar.value, 0, 100) / 100, 20);
+      ctx.fillStyle = "#e7f1ff";
+      ctx.font = "bold 14px monospace";
+      ctx.fillText(bar.value + "%", W - 110, y + 16);
+    });
+
+    const statsY = barsTop + bars.length * 56 + 30;
+    ctx.fillStyle = "#7c8bb0";
+    ctx.font = "14px monospace";
+    ctx.fillText(`クリアタイム: ${formatTime(cardData.elapsedSeconds)}　歩数: ${cardData.steps}`, 50, statsY);
+
+    ctx.fillStyle = "#4deeea";
+    ctx.font = "16px monospace";
+    ctx.fillText(`SUBJECT NO. ${cardData.pid}`, 50, H - 50);
+  }
+
+  _wrapJapanese(text, maxChars) {
+    const lines = [];
+    let cur = "";
+    for (const ch of text || "") {
+      cur += ch;
+      if (cur.length >= maxChars) { lines.push(cur); cur = ""; }
+    }
+    if (cur) lines.push(cur);
+    return lines.slice(0, 4);
   }
 
   /** 「みんなの統計」ページを描画する */
@@ -1584,28 +2124,14 @@ class ResultRenderer {
     document.getElementById("stats-bar-linear").style.width = stats.typeRatio.L + "%";
     document.getElementById("stats-pct-linear").textContent = stats.typeRatio.L + "%";
 
-    this._renderRankingList(
-      "stats-title-ranking",
-      stats.titleRanking,
-      (item) => `<span class="rank-name">${item.title}</span><span class="rank-value">${item.count}人</span>`
-    );
-    this._renderRankingList(
-      "stats-fastest-ranking",
-      stats.fastestRanking,
-      (item) => `<span class="rank-name">${item.pid ? "被験者" + item.pid : "被験者"}（${item.title}）</span><span class="rank-value">${formatTime(item.elapsedSeconds)}</span>`
-    );
-    this._renderRankingList(
-      "stats-exploration-ranking",
-      stats.explorationRanking,
-      (item) => `<span class="rank-name">${item.pid ? "被験者" + item.pid : "被験者"}（${item.title}）</span><span class="rank-value">${item.explorationRate}%</span>`
-    );
+    this._renderRankingList("stats-title-ranking", stats.titleRanking,
+      (item) => `<span class="rank-name">${item.title}</span><span class="rank-value">${item.count}人</span>`);
+    this._renderRankingList("stats-fastest-ranking", stats.fastestRanking,
+      (item) => `<span class="rank-name">被験者${item.pid}（${item.title}）</span><span class="rank-value">${formatTime(item.elapsedSeconds)}</span>`);
+    this._renderRankingList("stats-exploration-ranking", stats.explorationRanking,
+      (item) => `<span class="rank-name">被験者${item.pid}（${item.title}）</span><span class="rank-value">${item.explorationRate}%</span>`);
 
-    const typeLabel = { D: "DFS", B: "BFS", L: "線形探索", X: "オールラウンド" };
-    this._renderRankingList(
-      "stats-recent-list",
-      stats.recentRecords,
-      (item) => `<span class="rank-name">被験者${item.pid || "----"}（${item.title} / ${typeLabel[item.typeCode] || "?"}）</span><span class="rank-value">${formatTime(item.elapsedSeconds)}・${item.steps}歩</span>`
-    );
+    this._renderRecentTable(stats.recent);
   }
 
   _renderRankingList(elementId, items, lineBuilder) {
@@ -1616,28 +2142,46 @@ class ResultRenderer {
     }
     el.innerHTML = items.map((item) => `<li>${lineBuilder(item)}</li>`).join("");
   }
+
+  _renderRecentTable(recent) {
+    const tbody = document.getElementById("stats-recent-table-body");
+    if (!recent || recent.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="ranking-empty">まだ記録がありません。</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = recent.map((r) => `
+      <tr>
+        <td>${r.pid}</td>
+        <td>${r.title}</td>
+        <td>${r.typeCode}</td>
+        <td>${formatTime(r.elapsedSeconds)}</td>
+        <td>${r.steps}</td>
+      </tr>
+    `).join("");
+  }
 }
 
 
 /* ================================================================
    GameManager
    ----------------------------------------------------------------
-   すべてのクラスをつなぎ合わせ、タイトル→ゲーム→解析演出→結果→統計
-   という一連の流れを制御する司令塔。
+   すべてのクラスをつなぎ合わせ、SYSTEM BOOT→タイトル→ゲーム→
+   解析演出→エンディング演出→結果→統計、という一連の流れを制御する
+   司令塔。⑪展示モード（30秒無操作でタイトルへ自動復帰）もここで管理する。
 ================================================================ */
 class GameManager {
   constructor() {
     this.COLS = 11;
     this.ROWS = 9;
+    this.IDLE_TIMEOUT_MS = 30000;
 
     this.ui = new UIManager();
     this.storage = new StorageManager();
+    this.statistics = new StatisticsManager(this.storage);
     this.resultRenderer = new ResultRenderer();
-    this.log = new LogManager();
-
-    this._statsBackTarget = "screen-result";
-    this._lastActivityAt = Date.now();
-    this.EXHIBIT_IDLE_MS = 30000;
+    this.logManager = new LogManager();
+    this.settings = new SettingsManager();
+    this.endingManager = new EndingManager();
 
     this.maze = null;
     this.player = null;
@@ -1646,41 +2190,35 @@ class GameManager {
 
     this.timerHandle = null;
     this.animHandle = null;
+    this.idleCheckHandle = null;
     this.inputLocked = false;
-    this._treasureMsgShown = false;
 
-    this.subjectId = generateSubjectId();
-    this.lastRecord = null; // 統計ページから結果画面へ戻れるように直近の結果を保持
+    this.subjectId = generateSubjectId(); // ③START/リスタート時に必ず更新される
+    this.lastRecord = null;
+    this.lastCardData = null; // 診断カード画面に表示中のデータ（画像保存ボタン用）
   }
 
   init() {
-    this.ui.showLabBadge(this.subjectId);
-
     document.getElementById("btn-start").addEventListener("click", () => this.startNewGame());
     document.getElementById("btn-howto").addEventListener("click", () => this.ui.showScreen("screen-howto"));
     document.getElementById("btn-howto-back").addEventListener("click", () => this.ui.showScreen("screen-title"));
+    document.getElementById("btn-history").addEventListener("click", () => this.showStats());
     document.getElementById("btn-retry").addEventListener("click", () => this.startNewGame());
-    document.getElementById("btn-title").addEventListener("click", () => {
-      this.ui.hideLabBadge();
-      this.ui.hideRec();
-      this.log.stop();
-      this.ui.showScreen("screen-title");
-    });
-    document.getElementById("btn-stats").addEventListener("click", () => this.showStats("screen-result"));
-    document.getElementById("btn-title-history").addEventListener("click", () => this.showStats("screen-title"));
-    document.getElementById("btn-stats-back").addEventListener("click", () => this.ui.showScreen(this._statsBackTarget));
-    document.getElementById("btn-stats-title").addEventListener("click", () => {
-      this.ui.hideLabBadge();
-      this.ui.hideRec();
-      this.log.stop();
-      this.ui.showScreen("screen-title");
-    });
+    // ⑪診断結果画面から「タイトルへ」を押した時だけ、エンディング演出を挟む
+    document.getElementById("btn-title").addEventListener("click", () => this._finishAndGoToTitle());
+    document.getElementById("btn-stats").addEventListener("click", () => this.showStats());
+    document.getElementById("btn-stats-back").addEventListener("click", () => this.ui.showScreen("screen-result"));
+    document.getElementById("btn-stats-title").addEventListener("click", () => this.goToTitle());
+    document.getElementById("btn-explain").addEventListener("click", () => this.showExplain());
+    document.getElementById("btn-explain-back").addEventListener("click", () => this.ui.showScreen("screen-result"));
+    document.getElementById("btn-card-download").addEventListener("click", () => this.downloadCardImage());
 
-    document.getElementById("btn-algo-info").addEventListener("click", () => this._showAlgoModal());
-    document.getElementById("algo-modal-close").addEventListener("click", () => this._hideAlgoModal());
-    document.getElementById("algo-modal").addEventListener("click", (e) => {
-      if (e.target.id === "algo-modal") this._hideAlgoModal();
-    });
+    // ④設定画面
+    document.getElementById("btn-settings").addEventListener("click", () => this.showSettings());
+    document.getElementById("btn-settings-back").addEventListener("click", () => this.ui.showScreen("screen-title"));
+    document.getElementById("btn-toggle-reduce-motion").addEventListener("click", () => this._toggleReduceMotion());
+    document.getElementById("btn-clear-history").addEventListener("click", () => this._confirmClearHistory());
+    this._applyReduceMotionSetting();
 
     window.addEventListener("keydown", (e) => this._handleKey(e));
     document.querySelectorAll(".dpad-btn").forEach((btn) => {
@@ -1691,68 +2229,90 @@ class GameManager {
 
     window.addEventListener("resize", () => this._resizeCanvases());
 
-    this._setupExhibitMode();
+    // ⑨展示モード：どんな操作でも「最後に操作した時刻」を更新する
+    this.lastInteraction = Date.now();
+    const resetIdle = () => { this.lastInteraction = Date.now(); };
+    window.addEventListener("keydown", resetIdle, true);
+    window.addEventListener("pointerdown", resetIdle, true);
+    window.addEventListener("touchstart", resetIdle, true);
+    this.idleCheckHandle = setInterval(() => this._checkIdle(), 1000);
   }
 
-  /* --------------------------------------------------------------
-     アルゴリズム解説モーダル
-  -------------------------------------------------------------- */
-  _showAlgoModal() {
-    const listEl = document.getElementById("algo-why-list");
-    const reasons = (this.lastRecord && this.lastRecord.reasons) || [];
-    listEl.innerHTML = reasons.length
-      ? reasons.map((r) => `<li>${r}</li>`).join("")
-      : "<li>診断データがまだありません。まずはゲームをクリアしてみましょう。</li>";
-    document.getElementById("algo-modal").classList.remove("hidden");
+  /** 設定画面を開く（現在の設定値を反映してから表示する） */
+  showSettings() {
+    this._refreshSettingsScreen();
+    this.ui.showScreen("screen-settings");
   }
-  _hideAlgoModal() {
-    document.getElementById("algo-modal").classList.add("hidden");
+  _refreshSettingsScreen() {
+    const on = this.settings.get("reduceMotion");
+    const btn = document.getElementById("btn-toggle-reduce-motion");
+    btn.textContent = on ? "アニメーション軽減：ON" : "アニメーション軽減：OFF";
+  }
+  _toggleReduceMotion() {
+    this.settings.toggle("reduceMotion");
+    this._applyReduceMotionSetting();
+    this._refreshSettingsScreen();
+  }
+  _applyReduceMotionSetting() {
+    document.body.classList.toggle("reduce-motion-pref", !!this.settings.get("reduceMotion"));
+  }
+  _confirmClearHistory() {
+    const label = document.getElementById("btn-clear-history");
+    if (label.dataset.confirming === "1") {
+      this.storage.clearAllResults();
+      label.dataset.confirming = "0";
+      label.textContent = "履歴をリセットする";
+      const feedback = document.getElementById("settings-feedback");
+      feedback.textContent = "履歴をリセットしました。";
+      feedback.classList.remove("hidden");
+    } else {
+      label.dataset.confirming = "1";
+      label.textContent = "本当に消去する？（もう一度押す）";
+    }
   }
 
-  /* --------------------------------------------------------------
-     展示モード：一定時間操作が無ければ自動でタイトルへ戻す。
-     診断履歴の保存には影響しない（保存はクリア時点で既に完了している）。
-  -------------------------------------------------------------- */
-  _setupExhibitMode() {
-    const markActivity = () => { this._lastActivityAt = Date.now(); };
-    window.addEventListener("keydown", markActivity);
-    window.addEventListener("pointerdown", markActivity);
-    window.addEventListener("touchstart", markActivity, { passive: true });
+  goToTitle() {
+    this._stopTimer();
+    this.logManager.stop();
+    this.ui.hideLabBadge();
+    this.ui.hideRec();
+    this.ui.showScreen("screen-title");
+  }
 
-    setInterval(() => {
-      const idleFor = Date.now() - this._lastActivityAt;
-      const onTitle = document.getElementById("screen-title").classList.contains("active");
-      if (onTitle) {
-        document.body.classList.toggle("idle-pulse", idleFor > this.EXHIBIT_IDLE_MS);
-        return;
-      }
-      if (idleFor > this.EXHIBIT_IDLE_MS) {
-        this.inputLocked = true;
-        this._stopTimer();
-        this.log.stop();
-        this.ui.hideLabBadge();
-        this.ui.hideRec();
-        this._hideAlgoModal();
-        this.ui.showScreen("screen-title");
-        this._lastActivityAt = Date.now();
-      }
-    }, 3000);
+  /** ⑪結果画面から離れるときだけ、研究所コンソール風のエンディングを挟んでからタイトルへ戻る */
+  async _finishAndGoToTitle() {
+    this._stopTimer();
+    this.logManager.stop();
+    this.ui.hideLabBadge();
+    this.ui.hideRec();
+    this.ui.showScreen("screen-ending");
+    await this.endingManager.play(this.subjectId);
+    this.ui.showScreen("screen-title");
+  }
+
+  _checkIdle() {
+    const activeScreen = document.querySelector(".screen.active");
+    if (!activeScreen) return;
+    const exempt = ["screen-title", "screen-boot"];
+    if (exempt.includes(activeScreen.id)) return;
+    if (Date.now() - this.lastInteraction > this.IDLE_TIMEOUT_MS) {
+      this.goToTitle();
+    }
   }
 
   startNewGame() {
-    // START / 最初から遊ぶ / リスタート のたびに新しい被験者No.を発行する
+    // ③STARTのたびに新しい被験者No.を発行する（過去の履歴は書き換えない）
     this.subjectId = generateSubjectId();
     this.ui.showLabBadge(this.subjectId);
     this.ui.setRecRecording();
-    this.log.start();
-    this._lastActivityAt = Date.now();
+    this.logManager.startTicker("lab-log-ticker");
+    this.logManager.startPopups("lab-popup");
 
     this.maze = new MazeGenerator(this.COLS, this.ROWS);
     this.player = new PlayerController(this.maze);
     this.revealed = new Set();
     this._revealCellAndNeighbors(0, 0);
     this.inputLocked = false;
-    this._treasureMsgShown = false;
 
     this.ui.updateMission("宝箱を見つけよう");
     this.ui.setTreasureAcquired(false);
@@ -1803,15 +2363,19 @@ class GameManager {
   tryMove(dir) {
     if (this.inputLocked || !this.player || this.player.moving) return;
     const result = this.player.tryMove(dir);
-    if (!result.moved) return;
+    if (!result.moved) {
+      if (result.message) this.ui.showFloatingMessage(result.message);
+      return;
+    }
 
     this.ui.updateSteps(this.player.totalSteps);
 
     if (result.treasureJustCollected) {
-      this._treasureMsgShown = true;
       this.ui.setTreasureAcquired(true);
       this.ui.showTreasurePopup();
       this.ui.updateMission("ゴールを目指そう");
+    } else if (result.message) {
+      this.ui.showFloatingMessage(result.message);
     }
 
     this._revealCellAndNeighbors(this.player.c, this.player.r);
@@ -1850,11 +2414,13 @@ class GameManager {
     Renderer.drawMinimap(minimapCanvas.getContext("2d"), this.maze, this.revealed, this.player);
   }
 
+  /** クリア後：データ収集→解析→結果画面、という一連の流れ */
   async _onGameClear() {
     this.inputLocked = true;
     this.player.stopClock();
     this._stopTimer();
-    this.log.stop();
+    this.logManager.stop();
+
     await this.ui.playAnalyzingSequence();
     this.ui.setRecStopped();
     await this._buildAndShowResult();
@@ -1863,7 +2429,6 @@ class GameManager {
   async _buildAndShowResult() {
     const analysis = Analyzer.analyze(this.player);
 
-    // 保存・QR・画面表示すべてで使い回す「結果レコード」を1つにまとめる
     const record = {
       id: generateRecordId(),
       pid: this.subjectId,
@@ -1872,6 +2437,7 @@ class GameManager {
       commentIndex: analysis.commentIndex,
       title: analysis.title,
       comment: analysis.comment,
+      reasoning: analysis.reasoning,
       dfsScore: analysis.dfsScore,
       bfsScore: analysis.bfsScore,
       linearScore: analysis.linearScore,
@@ -1879,19 +2445,18 @@ class GameManager {
       stepDiff: analysis.stats.stepDiff,
       explorationRate: analysis.stats.explorationRate,
       elapsedSeconds: analysis.stats.elapsedSeconds,
+      gimmicks: analysis.gimmicks,
       timestamp: Date.now(),
-      reasons: analysis.reasons,
     };
     this.lastRecord = record;
 
-    // 統計ページ用にローカル保存（将来Firebase等に切り替える場合もここは変更不要）
+    // ⑤平均比較のために、保存する「前」の平均を取得しておく
+    // （自分の結果を混ぜる前の、これまでの被験者たちの平均と比較するため）
+    const averages = await this.statistics.getAverageScores();
+
     await this.storage.saveResult(record);
 
-    this.resultRenderer.renderResult(record, this.maze, this.player);
-
-    // みんなの平均との比較（歴代データが無い＝自分が1人目の場合も自然に表示されるようにする）
-    const aggStats = await this.storage.getAggregateStats();
-    this.resultRenderer.renderComparison(record, aggStats);
+    this.resultRenderer.renderResult(record, this.maze, this.player, averages);
 
     const cardUrl = QRManager.buildCardUrl(record);
     QRManager.renderInto(
@@ -1903,11 +2468,29 @@ class GameManager {
     this.ui.showScreen("screen-result");
   }
 
-  async showStats(fromScreen) {
-    this._statsBackTarget = fromScreen === "screen-title" ? "screen-title" : "screen-result";
-    const stats = await this.storage.getAggregateStats();
+  async showStats() {
+    const stats = await this.statistics.getAggregateStats();
     this.resultRenderer.renderStats(stats);
     this.ui.showScreen("screen-stats");
+  }
+
+  /** ⑥アルゴリズム解説画面（直近の診断結果があれば、根拠つきで表示） */
+  showExplain() {
+    if (this.lastRecord) this.resultRenderer.renderExplainPersonal(this.lastRecord);
+    this.ui.showScreen("screen-explain");
+  }
+
+  /** ⑨診断カードを画像として保存する */
+  downloadCardImage() {
+    if (!this.lastCardData) return;
+    const canvas = document.getElementById("card-share-canvas");
+    this.resultRenderer.renderShareCardImage(
+      canvas, this.lastCardData, this.lastCardData._title, this.lastCardData._comment
+    );
+    const link = document.createElement("a");
+    link.download = `algolab_card_${this.lastCardData.pid}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
   }
 
   /** URLのクエリに診断カード情報が含まれていれば、カード画面を直接表示する */
@@ -1916,22 +2499,15 @@ class GameManager {
     if (!cardData) return false;
 
     if (cardData.idOnly) {
-      // 軽量形式(id参照)の場合は、この端末に保存された記録から探す。
-      // 別の端末（例：来場者のスマホ）では見つからないのが自然な挙動のため、
-      // その場合はエラーで画面を壊さず、案内メッセージを表示する。
       const found = await this.storage.getResultById(cardData.id);
       if (found) {
-        this.resultRenderer.renderCard({
-          typeCode: found.typeCode,
-          titleIndex: found.titleIndex,
-          commentIndex: found.commentIndex,
-          dfsScore: found.dfsScore,
-          bfsScore: found.bfsScore,
-          linearScore: found.linearScore,
-          elapsedSeconds: found.elapsedSeconds,
-          steps: found.steps,
-          pid: found.pid,
-        });
+        const full = {
+          typeCode: found.typeCode, titleIndex: found.titleIndex, commentIndex: found.commentIndex,
+          dfsScore: found.dfsScore, bfsScore: found.bfsScore, linearScore: found.linearScore,
+          elapsedSeconds: found.elapsedSeconds, steps: found.steps, pid: found.pid,
+        };
+        const { title, comment } = this.resultRenderer.renderCard(full);
+        this.lastCardData = { ...full, _title: title, _comment: comment };
         this.ui.showScreen("screen-card");
         return true;
       }
@@ -1942,7 +2518,8 @@ class GameManager {
       return true;
     }
 
-    this.resultRenderer.renderCard(cardData);
+    const { title, comment } = this.resultRenderer.renderCard(cardData);
+    this.lastCardData = { ...cardData, _title: title, _comment: comment };
     this.ui.showScreen("screen-card");
     return true;
   }
@@ -1950,68 +2527,22 @@ class GameManager {
 
 
 /* ================================================================
-   起動画面（SYSTEM BOOT）
-   ----------------------------------------------------------------
-   初回アクセス時のみ、約3秒のフェイク起動シーケンスを表示する。
-   2回目以降のアクセスでは、このブロックを丸ごとスキップする。
-================================================================ */
-const BOOT_SEEN_KEY = "algo_lab_boot_seen_v1";
-
-function runBootSequence() {
-  return new Promise((resolve) => {
-    const bootEl = document.getElementById("screen-boot");
-    if (!bootEl) return resolve();
-
-    let seen = false;
-    try { seen = localStorage.getItem(BOOT_SEEN_KEY) === "1"; } catch (e) { /* 無視 */ }
-    if (seen) {
-      bootEl.classList.add("boot-gone");
-      return resolve();
-    }
-
-    const lines = ["boot-l1", "boot-l2", "boot-l3"];
-    lines.forEach((id, i) => {
-      setTimeout(() => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add("boot-show");
-      }, 250 + i * 380);
-    });
-
-    setTimeout(() => {
-      const bar = document.getElementById("boot-bar");
-      if (bar) bar.style.width = "100%";
-    }, 300);
-
-    setTimeout(() => {
-      const complete = document.getElementById("boot-l4");
-      const welcome = document.getElementById("boot-l5");
-      if (complete) complete.classList.add("boot-show");
-      if (welcome) welcome.classList.add("boot-show");
-    }, 2300);
-
-    setTimeout(() => {
-      bootEl.classList.add("boot-hidden");
-      try { localStorage.setItem(BOOT_SEEN_KEY, "1"); } catch (e) { /* 無視 */ }
-      setTimeout(() => {
-        bootEl.classList.add("boot-gone");
-        resolve();
-      }, 800);
-    }, 3000);
-  });
-}
-
-
-/* ================================================================
    初期化処理
 ================================================================ */
 window.addEventListener("DOMContentLoaded", async () => {
-  await runBootSequence();
-
   const game = new GameManager();
   game.init();
-  // QRコード経由でアクセスされた場合は診断カード画面を直接表示する
+
+  // QRコード経由でアクセスされた場合は、SYSTEM BOOT演出を飛ばして
+  // 診断カード画面を直接表示する（スキャンした人を待たせないため）
   const shownCard = await game.tryShowCardFromUrl();
-  if (!shownCard) {
-    game.ui.showScreen("screen-title");
+  if (shownCard) return;
+
+  // ②SYSTEM BOOTは初回起動時のみ表示する
+  if (!game.storage.hasSeenBoot()) {
+    game.ui.showScreen("screen-boot");
+    await game.ui.playBootSequence();
+    game.storage.markBootSeen();
   }
+  game.ui.showScreen("screen-title");
 });
