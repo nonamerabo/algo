@@ -68,9 +68,8 @@
 
       <div class="title-buttons">
         <button id="btn-start" class="pixel-btn primary">START</button>
-        <button id="btn-history" class="pixel-btn">【みんなの履歴】</button>
       </div>
-      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.1.6.4</p>
+      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.1.7</p>
     </div>
   </section>
 
@@ -78,9 +77,17 @@
        画面2.5：MISSION BRIEFING（START後の任務説明）
   ============================================================ -->
   <section id="screen-briefing" class="screen">
-    <div class="briefing-console">
+    <div class="briefing-console holo-console">
+      <div class="holo-corner holo-corner-tl"></div>
+      <div class="holo-corner holo-corner-tr"></div>
+      <div class="holo-corner holo-corner-bl"></div>
+      <div class="holo-corner holo-corner-br"></div>
+      <div class="briefing-header">
+        <span class="briefing-chip">LAB ACCESS</span>
+        <span class="briefing-status">MISSION CHANNEL OPEN</span>
+      </div>
       <pre id="briefing-log" class="briefing-log"></pre>
-      <p id="briefing-prompt" class="briefing-prompt hidden">▶ TAP / ENTER TO START<span class="ending-cursor">▌</span></p>
+      <p id="briefing-prompt" class="briefing-prompt hidden">ENTER / SPACE / クリック / タップで任務開始<span class="ending-cursor">▌</span></p>
     </div>
   </section>
 
@@ -177,6 +184,7 @@
         <div class="subject-file-block">
           <p class="eyebrow">SUBJECT FILE</p>
           <p class="subject-file-id">被験者 No.<span id="result-subject-id-top">------</span></p>
+          <p class="subject-file-note">行動ログ照合完了 / 解析ファイルを展開します</p>
         </div>
         <p class="truth-reveal">あなたの思考を解析しました。</p>
         <p class="eyebrow">解析完了 - ANALYSIS REPORT</p>
@@ -237,7 +245,18 @@
           <div class="stat-box"><span class="stat-k">通常最短</span><span id="stat-normal-shortest" class="stat-v">0</span></div>
           <div class="stat-box"><span class="stat-k">ギミック込み最短</span><span id="stat-gimmick-shortest" class="stat-v">0</span></div>
         </div>
-        <p id="warp-shortest-notice" class="route-notice">最短ルートを解析中...</p>
+        <p id="warp-shortest-notice" class="route-notice lab-alert">最短ルートを解析中...</p>
+
+        <div class="research-stat-block">
+          <h3 class="panel-title small">研究統計</h3>
+          <div class="stat-grid">
+            <div class="stat-box"><span class="stat-k">今回の称号</span><span id="research-current-title" class="stat-v">――</span></div>
+            <div class="stat-box"><span class="stat-k">獲得人数</span><span id="research-title-count" class="stat-v">0名</span></div>
+            <div class="stat-box"><span class="stat-k">割合</span><span id="research-title-rate" class="stat-v">0%</span></div>
+            <div class="stat-box"><span class="stat-k">レア度</span><span id="research-title-rarity" class="stat-v">★★★☆☆</span></div>
+          </div>
+          <p id="research-title-comment" class="ai-comment small">研究所データを照合中...</p>
+        </div>
 
         <!-- ルート比較（キャンバス3枚） -->
         <h3 class="panel-title small">ルート比較</h3>
@@ -257,8 +276,17 @@
         </div>
 
 
+        <div class="research-menu-block">
+          <h3 class="panel-title small">研究資料</h3>
+          <div class="research-menu-grid">
+            <button id="btn-explain-menu" class="pixel-btn glow-new">AIデータベース<span class="new-badge">NEW</span></button>
+            <button id="btn-type-list-menu" class="pixel-btn">称号一覧</button>
+            <button id="btn-stats" class="pixel-btn">みんなの研究データ</button>
+          </div>
+          <p class="howto-hint">※ 研究資料は解析完了後に開放されるデータベースです。</p>
+        </div>
+
         <div class="result-buttons">
-          <button id="btn-stats" class="pixel-btn">みんなの統計を見る</button>
           <button id="btn-title" class="pixel-btn">タイトルへ</button>
         </div>
         <!-- QRコード -->
@@ -412,7 +440,8 @@
     <div class="result-scroll">
       <div class="crt-frame result-frame">
         <p class="eyebrow">LAB ARCHIVE - TITLE INDEX</p>
-        <h2 class="panel-title">称号一覧</h2>
+        <h2 class="panel-title">称号一覧<span class="research-label">研究資料</span></h2>
+        <p class="howto-hint">この端末に保存された研究データをもとに、各称号の分布を表示します。</p>
         <div id="type-list-grid" class="type-list-grid"></div>
         <div class="result-buttons">
           <button id="btn-type-list-back" class="pixel-btn">結果へもどる</button>
