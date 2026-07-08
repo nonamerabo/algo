@@ -460,20 +460,41 @@ body::before {
   transition: color 0.3s ease;
 }
 .treasure-icon {
-  width: 12px;
-  height: 10px;
-  background: var(--wall-color);
-  border: 1px solid var(--text-dim);
+  position: relative;
+  width: 16px;
+  height: 13px;
   display: inline-block;
-  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  background: linear-gradient(to bottom, #b86a2e 0 36%, #ffce54 36% 48%, #7a3f1c 48% 100%);
+  border: 1px solid #3a1f12;
+  box-shadow: 0 0 7px rgba(255, 206, 84, 0.45);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+.treasure-icon::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 1px;
+  width: 3px;
+  height: 10px;
+  background: var(--line-amber);
+}
+.treasure-icon::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  width: 2px;
+  height: 3px;
+  background: #16110a;
 }
 .treasure-badge.acquired {
   color: var(--line-amber);
 }
 .treasure-badge.acquired .treasure-icon {
-  background: var(--line-amber);
+  background: linear-gradient(to bottom, #ffec9a 0 20%, #8b4a20 20% 44%, #6d421d 44% 100%);
   border-color: #fff8e0;
   box-shadow: 0 0 8px rgba(255, 206, 84, 0.7);
+  transform: translateY(-1px);
 }
 
 /* 宝箱入手時の大きなポップアップ演出（画面中央に一瞬表示） */
@@ -698,7 +719,7 @@ body::before {
 
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -713,6 +734,22 @@ body::before {
 }
 .stat-k { font-size: 9px; color: var(--text-dim); font-family: var(--font-pixel); }
 .stat-v { font-size: 15px; color: var(--line-cyan); font-family: var(--font-pixel); }
+
+
+.route-notice {
+  font-size: 12px;
+  color: var(--text-dim);
+  border: 1px dashed var(--wall-color);
+  background: rgba(13, 20, 36, 0.55);
+  padding: 9px 12px;
+  margin: 0 0 12px;
+  text-align: center;
+}
+.route-notice.active {
+  color: var(--line-amber);
+  border-color: var(--line-amber);
+  box-shadow: 0 0 14px rgba(255, 206, 84, 0.18);
+}
 
 .route-compare {
   display: grid;

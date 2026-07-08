@@ -238,7 +238,10 @@
           <div class="stat-box"><span class="stat-k">歩数</span><span id="stat-steps" class="stat-v">0</span></div>
           <div class="stat-box"><span class="stat-k">最短との差</span><span id="stat-diff" class="stat-v">+0</span></div>
           <div class="stat-box"><span class="stat-k">探索率</span><span id="stat-rate" class="stat-v">0%</span></div>
+          <div class="stat-box"><span class="stat-k">通常最短</span><span id="stat-normal-shortest" class="stat-v">0</span></div>
+          <div class="stat-box"><span class="stat-k">ギミック込み最短</span><span id="stat-gimmick-shortest" class="stat-v">0</span></div>
         </div>
+        <p id="warp-shortest-notice" class="route-notice">最短ルートを解析中...</p>
 
         <!-- ルート比較（キャンバス3枚） -->
         <h3 class="panel-title small">ルート比較</h3>
@@ -248,12 +251,12 @@
             <canvas id="route-canvas-player" class="route-canvas"></canvas>
           </div>
           <div class="route-box">
-            <p class="route-caption">最短ルート（BFS）</p>
+            <p class="route-caption">通常最短ルート</p>
             <canvas id="route-canvas-shortest" class="route-canvas"></canvas>
           </div>
           <div class="route-box">
-            <p class="route-caption">DFSならこう進む</p>
-            <canvas id="route-canvas-dfs" class="route-canvas"></canvas>
+            <p class="route-caption">ギミック込み最短ルート</p>
+            <canvas id="route-canvas-gimmick" class="route-canvas"></canvas>
           </div>
         </div>
 

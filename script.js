@@ -283,6 +283,75 @@ class MazeGenerator {
     return path.reverse();
   }
 
+
+  /** ワープを「追加の移動辺」として扱った最短経路。通常通路 + ワープ瞬間移動をBFSで探索する。 */
+  shortestPathWithWarps(from, to) {
+    const prev = new Map();
+    const visited = new Set([cellKey(from.c, from.r)]);
+    const queue = [from];
+    let head = 0;
+
+    const warpNeighbor = (cell) => {
+      const type = this.gimmickTypeAt(cell.c, cell.r);
+      if (type !== "warpA" && type !== "warpB") return null;
+      const dest = this.warpDestination(type);
+      if (!dest) return null;
+      return { c: dest.c, r: dest.r, dir: "WARP" };
+    };
+
+    while (head < queue.length) {
+      const cur = queue[head++];
+      if (cur.c === to.c && cur.r === to.r) break;
+      const nextCells = this.neighborsOf(cur.c, cur.r);
+      const warp = warpNeighbor(cur);
+      if (warp) nextCells.push(warp);
+      for (const n of nextCells) {
+        const key = cellKey(n.c, n.r);
+        if (!visited.has(key)) {
+          visited.add(key);
+          prev.set(key, cur);
+          queue.push({ c: n.c, r: n.r });
+        }
+      }
+    }
+
+    const targetKey = cellKey(to.c, to.r);
+    if (!visited.has(targetKey)) return this.shortestPath(from, to);
+    const path = [];
+    let cur = to;
+    path.push(cur);
+    while (!(cur.c === from.c && cur.r === from.r)) {
+      cur = prev.get(cellKey(cur.c, cur.r));
+      if (!cur) break;
+      path.push(cur);
+    }
+    return path.reverse();
+  }
+
+  routePlan(includeWarps = false) {
+    const finder = includeWarps ? this.shortestPathWithWarps.bind(this) : this.shortestPath.bind(this);
+    const toTreasure = finder(this.start, this.treasure);
+    const toGoal = finder(this.treasure, this.goal);
+    return toTreasure.concat(toGoal.slice(1));
+  }
+
+  shortestRouteSummary() {
+    const normalPath = this.routePlan(false);
+    const gimmickPath = this.routePlan(true);
+    const normalSteps = Math.max(0, normalPath.length - 1);
+    const gimmickSteps = Math.max(0, gimmickPath.length - 1);
+    const useGimmick = gimmickSteps < normalSteps;
+    return {
+      normalPath,
+      gimmickPath,
+      normalSteps,
+      gimmickSteps,
+      theoreticalPath: useGimmick ? gimmickPath : normalPath,
+      theoreticalSteps: useGimmick ? gimmickSteps : normalSteps,
+      warpImproves: useGimmick,
+    };
+  }
+
   /** DFS（優先順 N,E,S,W固定）で目的地に着くまでの全移動手順をシミュレートする */
   simulateDFSPath(from, to) {
     const visited = new Set([cellKey(from.c, from.r)]);
@@ -352,6 +421,7 @@ class PlayerController {
     this.pitfallHits = 0;
     this.warpUsed = 0;
     this.recoveryUsed = false;
+    this.pitfallShield = false;
   }
 
   startClock() { this.startTime = performance.now(); }
@@ -399,14 +469,20 @@ class PlayerController {
       message = "鍵を手に入れた！";
     } else if (gimmickType === "door" && !this.doorOpened) {
       this.doorOpened = true;
-      message = "隠し部屋を見つけた！";
+      message = "隠し研究ログを発見！探索率ボーナスを記録";
     } else if (gimmickType === "recovery" && !this.recoveryUsed) {
       this.recoveryUsed = true;
-      message = "回復ポイントで気力を取り戻した";
+      this.pitfallShield = true;
+      message = "回復ポイントを記録！次の落とし穴ペナルティを軽減";
     } else if (gimmickType === "pitfall") {
       this.pitfallHits++;
-      message = "落とし穴に落ちた…スタート地点に戻される！";
-      this._teleportTo(this.maze.start);
+      if (this.pitfallShield) {
+        this.pitfallShield = false;
+        message = "落とし穴を検知！回復データにより転送を回避";
+      } else {
+        message = "落とし穴に落ちた…スタート地点に戻される！";
+        this._teleportTo(this.maze.start);
+      }
     } else if (gimmickType === "warpA" || gimmickType === "warpB") {
       this.warpUsed++;
       message = "ワープした！";
@@ -486,7 +562,10 @@ class PlayerController {
     return (end - this.startTime) / 1000;
   }
   get uniqueVisitedCount() { return this.visitCounts.size; }
-  get explorationRate() { return (this.uniqueVisitedCount / this.maze.totalCells()) * 100; }
+  get explorationRate() {
+    const hiddenLogBonus = this.doorOpened ? 5 : 0;
+    return Math.min(100, (this.uniqueVisitedCount / this.maze.totalCells()) * 100 + hiddenLogBonus);
+  }
 
   get unexploredPriorityRatio() {
     if (this.branchDecisions.length === 0) return 0.5;
@@ -503,11 +582,10 @@ class PlayerController {
     if (total === 0) return 0;
     return Math.min(1, this.deadEndVisits / total);
   }
-  get idealSteps() {
-    const toTreasure = this.maze.shortestPath(this.maze.start, this.maze.treasure).length - 1;
-    const toGoal = this.maze.shortestPath(this.maze.treasure, this.maze.goal).length - 1;
-    return toTreasure + toGoal;
-  }
+  get routeSummary() { return this.maze.shortestRouteSummary(); }
+  get idealSteps() { return this.routeSummary.theoreticalSteps; }
+  get normalIdealSteps() { return this.routeSummary.normalSteps; }
+  get gimmickIdealSteps() { return this.routeSummary.gimmickSteps; }
   get stepDiff() { return this.totalSteps - this.idealSteps; }
 }
 
@@ -752,7 +830,7 @@ const Analyzer = {
     // ⑥「なぜこのタイプと診断されたのか」の根拠（プレイ内容ベース）
     const reasoning = this._buildReasoning(typeCode, {
       deadEndRatio, unexploredRatio, revisitRatio, diffRatio, systematicRatio,
-      doorOpened: player.doorOpened, pitfallHits: player.pitfallHits, warpUsed: player.warpUsed,
+      doorOpened: player.doorOpened, pitfallHits: player.pitfallHits, warpUsed: player.warpUsed, recoveryUsed: player.recoveryUsed,
     });
 
     return {
@@ -768,6 +846,9 @@ const Analyzer = {
       stats: {
         totalSteps: player.totalSteps,
         idealSteps,
+        normalIdealSteps: player.normalIdealSteps,
+        gimmickIdealSteps: player.gimmickIdealSteps,
+        warpImprovesShortest: player.routeSummary.warpImproves,
         stepDiff: player.stepDiff,
         explorationRate: Math.round(explorationRate),
         elapsedSeconds: Math.round(player.elapsedSeconds),
@@ -778,6 +859,7 @@ const Analyzer = {
         pitfallHits: player.pitfallHits,
         warpUsed: player.warpUsed,
         recoveryUsed: player.recoveryUsed,
+        pitfallShield: player.pitfallShield,
       },
     };
   },
@@ -805,7 +887,8 @@ const Analyzer = {
     }
     if (typeCode === "R") {
       reasons.push("危険な仕掛け（落とし穴）に一度も引っかからなかった");
-      if (m.doorOpened) reasons.push("隠し部屋を安全に見つけ出した");
+      if (m.doorOpened) reasons.push("鍵を使って隠し研究ログを回収した");
+      if (m.recoveryUsed) reasons.push("回復ポイントを活用してリスクに備えた");
     }
     if (typeCode === "A") {
       if (m.pitfallHits > 0) reasons.push("落とし穴に落ちてもなお、探索をやめなかった");
@@ -1475,12 +1558,9 @@ const Renderer = {
         if (cell.E) { ctx.moveTo(x + cellPx, y); ctx.lineTo(x + cellPx, y + cellPx); }
         ctx.stroke();
 
-        // 宝箱：取得済みなら消す
-        if (c === maze.treasure.c && r === maze.treasure.r && !player.treasureCollected) {
-          ctx.fillStyle = "#ffce54";
-          ctx.fillRect(x + cellPx * 0.28, y + cellPx * 0.36, cellPx * 0.44, cellPx * 0.34);
-          ctx.fillStyle = "#8a6a1d";
-          ctx.fillRect(x + cellPx * 0.28, y + cellPx * 0.36, cellPx * 0.44, cellPx * 0.08);
+        // 宝箱：取得前は光る閉じた宝箱、取得後は開いた宝箱として表示
+        if (c === maze.treasure.c && r === maze.treasure.r) {
+          Renderer._drawTreasureChest(ctx, x, y, cellPx, player.treasureCollected);
         }
         // ゴール：チェック柄のRPG風フラッグ
         if (c === maze.goal.c && r === maze.goal.r) {
@@ -1515,6 +1595,37 @@ const Renderer = {
       ctx.arc(px + cellPx * 0.78, py + cellPx * 0.06, cellPx * 0.08, 0, Math.PI * 2);
       ctx.fill();
     }
+  },
+
+  _drawTreasureChest(ctx, x, y, cellPx, opened = false) {
+    const left = x + cellPx * 0.22;
+    const top = y + cellPx * (opened ? 0.42 : 0.34);
+    const w = cellPx * 0.56;
+    const h = cellPx * 0.36;
+    if (!opened) {
+      ctx.fillStyle = "rgba(255,206,84,0.18)";
+      ctx.fillRect(x + cellPx * 0.14, y + cellPx * 0.24, cellPx * 0.72, cellPx * 0.56);
+    }
+    ctx.fillStyle = opened ? "#6d421d" : "#8b4a20";
+    ctx.fillRect(left, top + h * 0.28, w, h * 0.72);
+    ctx.fillStyle = opened ? "#b56a2b" : "#b86a2e";
+    ctx.fillRect(left, top + h * 0.05, w, h * 0.32);
+    ctx.fillStyle = "#ffce54";
+    ctx.fillRect(left, top + h * 0.34, w, h * 0.1);
+    ctx.fillRect(left + w * 0.45, top + h * 0.05, w * 0.1, h * 0.95);
+    ctx.fillRect(left + w * 0.06, top + h * 0.16, w * 0.16, h * 0.12);
+    ctx.fillRect(left + w * 0.78, top + h * 0.16, w * 0.16, h * 0.12);
+    ctx.fillStyle = "#16110a";
+    ctx.fillRect(left + w * 0.47, top + h * 0.56, w * 0.06, h * 0.16);
+    if (opened) {
+      ctx.fillStyle = "#ffec9a";
+      ctx.fillRect(left + w * 0.18, top + h * 0.18, w * 0.64, h * 0.08);
+      ctx.fillStyle = "rgba(255,206,84,0.45)";
+      ctx.fillRect(left + w * 0.28, y + cellPx * 0.24, w * 0.44, h * 0.12);
+    }
+    ctx.strokeStyle = "#3a1f12";
+    ctx.lineWidth = Math.max(1, cellPx * 0.035);
+    ctx.strokeRect(left, top + h * 0.05, w, h * 0.95);
   },
 
   _drawGoalFlag(ctx, x, y, cellPx) {
@@ -2018,15 +2129,22 @@ class ResultRenderer {
     const diff = record.stepDiff;
     document.getElementById("stat-diff").textContent = (diff >= 0 ? "+" : "") + diff;
     document.getElementById("stat-rate").textContent = record.explorationRate + "%";
+    const normalEl = document.getElementById("stat-normal-shortest");
+    const gimmickEl = document.getElementById("stat-gimmick-shortest");
+    const noticeEl = document.getElementById("warp-shortest-notice");
+    if (normalEl) normalEl.textContent = record.normalIdealSteps;
+    if (gimmickEl) gimmickEl.textContent = record.gimmickIdealSteps;
+    if (noticeEl) {
+      noticeEl.textContent = record.warpImprovesShortest
+        ? "ワープ使用により最短ルートが更新されました"
+        : "今回は通常ルートが理論最短です";
+      noticeEl.className = record.warpImprovesShortest ? "route-notice active" : "route-notice";
+    }
 
-    const shortestPath = maze
-      .shortestPath(maze.start, maze.treasure)
-      .concat(maze.shortestPath(maze.treasure, maze.goal).slice(1));
-    const dfsPath = maze.simulateDFSPath(maze.start, maze.goal);
-
+    const summary = maze.shortestRouteSummary();
     Renderer.drawRoute(document.getElementById("route-canvas-player"), maze, player.path, "#4deeea");
-    Renderer.drawRoute(document.getElementById("route-canvas-shortest"), maze, shortestPath, "#ffce54");
-    Renderer.drawRoute(document.getElementById("route-canvas-dfs"), maze, dfsPath, "#ff2e6d");
+    Renderer.drawRoute(document.getElementById("route-canvas-shortest"), maze, summary.normalPath, "#ffce54");
+    Renderer.drawRoute(document.getElementById("route-canvas-gimmick"), maze, summary.gimmickPath, "#ff2e6d");
   }
 
   _renderCompareLine(elementId, myScore, avgScore) {
@@ -2538,6 +2656,10 @@ class GameManager {
       bfsScore: analysis.bfsScore,
       linearScore: analysis.linearScore,
       steps: analysis.stats.totalSteps,
+      normalIdealSteps: analysis.stats.normalIdealSteps,
+      gimmickIdealSteps: analysis.stats.gimmickIdealSteps,
+      idealSteps: analysis.stats.idealSteps,
+      warpImprovesShortest: analysis.stats.warpImprovesShortest,
       stepDiff: analysis.stats.stepDiff,
       explorationRate: analysis.stats.explorationRate,
       elapsedSeconds: analysis.stats.elapsedSeconds,
