@@ -210,18 +210,24 @@ class MazeGenerator {
     };
 
     return {
+      key: null,
+      door: null,
       warpA: takeOne(),
       warpB: takeOne(),
       pitfall: takeOne(),
+      recovery: null,
     };
   }
 
   /** 指定セルにギミックがあれば種類を返す（無ければnull） */
   gimmickTypeAt(c, r) {
     const g = this.gimmicks;
+    if (g.key && g.key.c === c && g.key.r === r) return "key";
+    if (g.door && g.door.c === c && g.door.r === r) return "door";
     if (g.warpA && g.warpA.c === c && g.warpA.r === r) return "warpA";
     if (g.warpB && g.warpB.c === c && g.warpB.r === r) return "warpB";
     if (g.pitfall && g.pitfall.c === c && g.pitfall.r === r) return "pitfall";
+    if (g.recovery && g.recovery.c === c && g.recovery.r === r) return "recovery";
     return null;
   }
 
@@ -278,28 +284,22 @@ class MazeGenerator {
   }
 
 
-  /** ワープを「追加の移動辺」として扱った最短経路。通常通路 + ワープ瞬間移動をBFSで探索する。 */
-  shortestPathWithWarps(from, to) {
+  /** ワープを通路1本分の転送エッジとして扱った最短経路を返す */
+  shortestPathWithWarp(from, to) {
     const prev = new Map();
     const visited = new Set([cellKey(from.c, from.r)]);
     const queue = [from];
     let head = 0;
-
-    const warpNeighbor = (cell) => {
-      const type = this.gimmickTypeAt(cell.c, cell.r);
-      if (type !== "warpA" && type !== "warpB") return null;
-      const dest = this.warpDestination(type);
-      if (!dest) return null;
-      return { c: dest.c, r: dest.r, dir: "WARP" };
-    };
-
     while (head < queue.length) {
       const cur = queue[head++];
       if (cur.c === to.c && cur.r === to.r) break;
-      const nextCells = this.neighborsOf(cur.c, cur.r);
-      const warp = warpNeighbor(cur);
-      if (warp) nextCells.push(warp);
-      for (const n of nextCells) {
+      const neighbors = this.neighborsOf(cur.c, cur.r).map(n => ({ c: n.c, r: n.r }));
+      const gt = this.gimmickTypeAt(cur.c, cur.r);
+      if (gt === "warpA" || gt === "warpB") {
+        const dest = this.warpDestination(gt);
+        if (dest) neighbors.push({ c: dest.c, r: dest.r, warp: true });
+      }
+      for (const n of neighbors) {
         const key = cellKey(n.c, n.r);
         if (!visited.has(key)) {
           visited.add(key);
@@ -308,42 +308,20 @@ class MazeGenerator {
         }
       }
     }
-
-    const targetKey = cellKey(to.c, to.r);
-    if (!visited.has(targetKey)) return this.shortestPath(from, to);
     const path = [];
     let cur = to;
     path.push(cur);
     while (!(cur.c === from.c && cur.r === from.r)) {
       cur = prev.get(cellKey(cur.c, cur.r));
-      if (!cur) break;
+      if (!cur) return this.shortestPath(from, to);
       path.push(cur);
     }
     return path.reverse();
   }
 
-  routePlan(includeWarps = false) {
-    const finder = includeWarps ? this.shortestPathWithWarps.bind(this) : this.shortestPath.bind(this);
-    const toTreasure = finder(this.start, this.treasure);
-    const toGoal = finder(this.treasure, this.goal);
-    return toTreasure.concat(toGoal.slice(1));
-  }
-
-  shortestRouteSummary() {
-    const normalPath = this.routePlan(false);
-    const gimmickPath = this.routePlan(true);
-    const normalSteps = Math.max(0, normalPath.length - 1);
-    const gimmickSteps = Math.max(0, gimmickPath.length - 1);
-    const useGimmick = gimmickSteps < normalSteps;
-    return {
-      normalPath,
-      gimmickPath,
-      normalSteps,
-      gimmickSteps,
-      theoreticalPath: useGimmick ? gimmickPath : normalPath,
-      theoreticalSteps: useGimmick ? gimmickSteps : normalSteps,
-      warpImproves: useGimmick,
-    };
+  missionPath(useWarp = false) {
+    const fn = useWarp ? this.shortestPathWithWarp.bind(this) : this.shortestPath.bind(this);
+    return fn(this.start, this.treasure).concat(fn(this.treasure, this.goal).slice(1));
   }
 
   /** DFS（優先順 N,E,S,W固定）で目的地に着くまでの全移動手順をシミュレートする */
@@ -415,7 +393,6 @@ class PlayerController {
     this.pitfallHits = 0;
     this.warpUsed = 0;
     this.recoveryUsed = false;
-    this.pitfallShield = false;
   }
 
   startClock() { this.startTime = performance.now(); }
@@ -443,7 +420,11 @@ class PlayerController {
     const from = { c: this.c, r: this.r };
     const to = { c: this.c + d.dc, r: this.r + d.dr };
 
+    // 扉：鍵を持っていなければ通行不可（壁と同じ扱い）
     const gimmickType = this.maze.gimmickTypeAt(to.c, to.r);
+    if (gimmickType === "door" && !this.doorOpened && !this.hasKey) {
+      return { ...noop, message: "扉に鍵がかかっている…どこかで鍵を探そう" };
+    }
 
     this._recordMove(from, to);
     this.c = to.c;
@@ -454,7 +435,16 @@ class PlayerController {
       this.treasureCollected && this.treasureStepIndex === this.path.length - 1;
 
     let message = null;
-    if (gimmickType === "pitfall") {
+    if (gimmickType === "key" && !this.hasKey) {
+      this.hasKey = true;
+      message = "鍵を手に入れた！";
+    } else if (gimmickType === "door" && !this.doorOpened) {
+      this.doorOpened = true;
+      message = "隠し部屋を見つけた！";
+    } else if (gimmickType === "recovery" && !this.recoveryUsed) {
+      this.recoveryUsed = true;
+      message = "回復ポイントで気力を取り戻した";
+    } else if (gimmickType === "pitfall") {
       this.pitfallHits++;
       message = "落とし穴に落ちた…スタート地点に戻される！";
       this._teleportTo(this.maze.start);
@@ -554,10 +544,9 @@ class PlayerController {
     if (total === 0) return 0;
     return Math.min(1, this.deadEndVisits / total);
   }
-  get routeSummary() { return this.maze.shortestRouteSummary(); }
-  get idealSteps() { return this.routeSummary.theoreticalSteps; }
-  get normalIdealSteps() { return this.routeSummary.normalSteps; }
-  get gimmickIdealSteps() { return this.routeSummary.gimmickSteps; }
+  get normalIdealSteps() { return this.maze.missionPath(false).length - 1; }
+  get gimmickIdealSteps() { return this.maze.missionPath(true).length - 1; }
+  get idealSteps() { return Math.min(this.normalIdealSteps, this.gimmickIdealSteps); }
   get stepDiff() { return this.totalSteps - this.idealSteps; }
 }
 
@@ -756,8 +745,50 @@ const Analyzer = {
     },
   },
 
+
+  TYPE_CATALOG: [
+    { title: "探究者", type: "DFSタイプ", feature: "未知の道を最後まで進みやすい", action: "行き止まりや未探索マスをよく調べる", comment: "気になった道は最後まで見たい！" },
+    { title: "冒険家", type: "DFSタイプ", feature: "寄り道から発見を拾う", action: "奥へ奥へと進む", comment: "迷路の端っこ、呼ばれてます。" },
+    { title: "最短マスター", type: "BFSタイプ", feature: "無駄な移動が少ない効率派", action: "最短との差が少ない", comment: "回り道？それ、必要ですか？" },
+    { title: "効率の探検家", type: "BFSタイプ", feature: "近い場所から広く確認する", action: "再訪が少なくテンポが良い", comment: "宝箱回収RTA部門。" },
+    { title: "慎重派", type: "線形探索タイプ", feature: "一つずつ丁寧に確認する", action: "再訪や確認が多い", comment: "確認してから進む、それが安全。" },
+    { title: "一歩ずつの職人", type: "線形探索タイプ", feature: "手順の一貫性が高い", action: "同じ順序で分岐を選びやすい", comment: "雑に進むくらいなら一歩戻る。" },
+    { title: "アルゴリズム博士", type: "バランス型", feature: "深さ・広さ・順番のバランス型", action: "各スコアが高めにまとまる", comment: "研究員側に座ってください。" },
+    { title: "危険回避タイプ", type: "危険回避タイプ", feature: "怪しい床を避ける生存者", action: "落とし穴を踏まず効率も良い", comment: "石橋を叩いて、ログも取る。" },
+    { title: "型破りな挑戦者", type: "型破りタイプ", feature: "ワープや罠にも反応する実験体", action: "ワープ使用や落とし穴ヒットがある", comment: "それ押す？押した。記録しました。" }
+  ],
+
+  ensureExpandedComments() {
+    const make = (base, prefix) => {
+      const humor = [
+        "宝箱より先に迷路と仲良くなっていました。", "研究員がメモを取る手が追いつきません。", "迷路側も『え、そっち？』と言っています。", "寄り道に名前をつけるなら今日です。", "その一歩、AIは見逃しませんでした。", "探索ログが文化祭の屋台よりにぎやかです。", "最短ルートに対して礼儀正しく距離を取りました。", "慎重すぎて床の方が緊張しています。", "転送装置も思わず二度見しました。", "行き止まりにファンサしていました。"
+      ];
+      const beginner = [
+        "新しい道をよく確認していて、探索の特徴が分かりやすく出ました。", "無駄や寄り道の量から、進み方のクセが見えました。", "宝箱までの動き方にあなたらしい選び方が出ています。", "同じ場所に戻る回数も診断のヒントになりました。", "怪しい床やワープへの反応も記録に入りました。"
+      ];
+      const lab = [
+        "観測ログから経路選択の偏りを検出しました。", "未探索優先度・再訪率・到達経路を統合して分類しました。", "行動データの分散が有意に確認されました。", "最短差と探索率の相関から傾向を推定しました。", "転送・危険床イベントを補助特徴量として扱いました。"
+      ];
+      const ai = [
+        "解析完了。あなたの探索癖を記録しました。", "AI判定：かなり興味深い動きです。", "被験者ログに特徴的な反応を検出。", "思考パターン照合中……一致率良好。", "行動データ、保存しました。逃げてもログは残ります。"
+      ];
+      const rpg = [
+        "勇者の足取りに、独自の戦略が刻まれています。", "ダンジョン攻略にあなたの流儀が出ました。", "罠と転送装置を含む冒険譚として記録されました。", "宝箱への道のりは、まさに冒険者の履歴書です。", "この探索ログ、ギルドに提出できます。"
+      ];
+      const extras = [...humor, ...humor, ...beginner, ...lab, ...ai, ...rpg].map((x,i)=>`${prefix}：${x}`);
+      while (base.length < 42) base.push(extras[base.length % extras.length]);
+    };
+    make(this.COMMENT_POOL_D, "DFS観測");
+    make(this.COMMENT_POOL_B, "BFS観測");
+    make(this.COMMENT_POOL_L, "線形探索観測");
+    make(this.COMMENT_POOL_X, "バランス観測");
+    make(this.COMMENT_POOL_R, "危険回避観測");
+    make(this.COMMENT_POOL_A, "型破り観測");
+  },
+
   /** @param {PlayerController} player */
   analyze(player) {
+    this.ensureExpandedComments();
     const idealSteps = Math.max(1, player.idealSteps);
     const diffRatio = Math.max(0, player.stepDiff) / idealSteps;
     const deadEndRatio = player.deadEndRatio;
@@ -776,6 +807,7 @@ const Analyzer = {
 
     // ⑩ギミックの利用状況を軽く加味する（危険を厭わない=DFS寄り、慎重=線形寄り）
     if (player.pitfallHits > 0) dfsScore += 6;
+    if (player.recoveryUsed) linearScore += 5;
     if (player.pitfallHits > 0) bfsScore -= 3 * player.pitfallHits;
 
     dfsScore = Math.round(clamp(dfsScore, 0, 100));
@@ -788,7 +820,7 @@ const Analyzer = {
     let typeCode = dominant;
     if (dfsScore >= 65 && bfsScore >= 65 && linearScore >= 65) {
       typeCode = "X"; // 全部高水準ならアルゴリズム博士
-    } else if (player.pitfallHits === 0 && Math.abs(player.stepDiff) <= idealSteps * 0.15) {
+    } else if (player.pitfallHits === 0 && Math.abs(player.stepDiff) <= idealSteps * 0.20) {
       typeCode = "R"; // 危険回避タイプ：罠を踏まず、効率も良い
     } else if (player.pitfallHits >= 1 || player.warpUsed >= 1) {
       typeCode = "A"; // 型破りな挑戦者：危険な仕掛けに突っ込んだ・ワープを使った
@@ -801,7 +833,7 @@ const Analyzer = {
     // ⑥「なぜこのタイプと診断されたのか」の根拠（プレイ内容ベース）
     const reasoning = this._buildReasoning(typeCode, {
       deadEndRatio, unexploredRatio, revisitRatio, diffRatio, systematicRatio,
-      doorOpened: player.doorOpened, pitfallHits: player.pitfallHits, warpUsed: player.warpUsed, recoveryUsed: player.recoveryUsed,
+      doorOpened: player.doorOpened, pitfallHits: player.pitfallHits, warpUsed: player.warpUsed,
     });
 
     return {
@@ -819,7 +851,6 @@ const Analyzer = {
         idealSteps,
         normalIdealSteps: player.normalIdealSteps,
         gimmickIdealSteps: player.gimmickIdealSteps,
-        warpImprovesShortest: player.routeSummary.warpImproves,
         stepDiff: player.stepDiff,
         explorationRate: Math.round(explorationRate),
         elapsedSeconds: Math.round(player.elapsedSeconds),
@@ -830,7 +861,6 @@ const Analyzer = {
         pitfallHits: player.pitfallHits,
         warpUsed: player.warpUsed,
         recoveryUsed: player.recoveryUsed,
-        pitfallShield: player.pitfallShield,
       },
     };
   },
@@ -858,6 +888,7 @@ const Analyzer = {
     }
     if (typeCode === "R") {
       reasons.push("危険な仕掛け（落とし穴）に一度も引っかからなかった");
+      if (m.doorOpened) reasons.push("隠し部屋を安全に見つけ出した");
     }
     if (typeCode === "A") {
       if (m.pitfallHits > 0) reasons.push("落とし穴に落ちてもなお、探索をやめなかった");
@@ -869,6 +900,7 @@ const Analyzer = {
 
   /** typeCode + variant番号から称号・コメントを復元する（QRカード表示用） */
   reconstruct(typeCode, titleIndex, commentIndex) {
+    this.ensureExpandedComments();
     const titles = this.TITLE_POOL[typeCode] || this.TITLE_POOL.X;
     const comments = this._commentPoolFor(typeCode);
     return {
@@ -1527,9 +1559,12 @@ const Renderer = {
         if (cell.E) { ctx.moveTo(x + cellPx, y); ctx.lineTo(x + cellPx, y + cellPx); }
         ctx.stroke();
 
-        // 宝箱：取得前は光る閉じた宝箱、取得後は開いた宝箱として表示
-        if (c === maze.treasure.c && r === maze.treasure.r) {
-          Renderer._drawTreasureChest(ctx, x, y, cellPx, player.treasureCollected);
+        // 宝箱：取得済みなら消す
+        if (c === maze.treasure.c && r === maze.treasure.r && !player.treasureCollected) {
+          ctx.fillStyle = "#ffce54";
+          ctx.fillRect(x + cellPx * 0.28, y + cellPx * 0.36, cellPx * 0.44, cellPx * 0.34);
+          ctx.fillStyle = "#8a6a1d";
+          ctx.fillRect(x + cellPx * 0.28, y + cellPx * 0.36, cellPx * 0.44, cellPx * 0.08);
         }
         // ゴール：チェック柄のRPG風フラッグ
         if (c === maze.goal.c && r === maze.goal.r) {
@@ -1538,8 +1573,11 @@ const Renderer = {
 
         // ⑩マップギミックの描画
         const gimmick = maze.gimmickTypeAt(c, r);
+        if (gimmick === "key" && !player.hasKey) Renderer._drawKey(ctx, x, y, cellPx);
+        if (gimmick === "door" && !player.doorOpened) Renderer._drawDoor(ctx, x, y, cellPx);
         if (gimmick === "warpA" || gimmick === "warpB") Renderer._drawWarp(ctx, x, y, cellPx);
         if (gimmick === "pitfall") Renderer._drawPitfall(ctx, x, y, cellPx);
+        if (gimmick === "recovery" && !player.recoveryUsed) Renderer._drawRecovery(ctx, x, y, cellPx);
       }
     }
 
@@ -1555,37 +1593,12 @@ const Renderer = {
       ctx.fillStyle = "#ffce54";
       ctx.fillRect(px + cellPx * 0.36, py - cellPx * 0.06, cellPx * 0.28, cellPx * 0.16);
     }
-  },
-
-  _drawTreasureChest(ctx, x, y, cellPx, opened = false) {
-    const left = x + cellPx * 0.22;
-    const top = y + cellPx * (opened ? 0.42 : 0.34);
-    const w = cellPx * 0.56;
-    const h = cellPx * 0.36;
-    if (!opened) {
-      ctx.fillStyle = "rgba(255,206,84,0.18)";
-      ctx.fillRect(x + cellPx * 0.14, y + cellPx * 0.24, cellPx * 0.72, cellPx * 0.56);
+    if (player.hasKey) {
+      ctx.fillStyle = "#ffe27a";
+      ctx.beginPath();
+      ctx.arc(px + cellPx * 0.78, py + cellPx * 0.06, cellPx * 0.08, 0, Math.PI * 2);
+      ctx.fill();
     }
-    ctx.fillStyle = opened ? "#6d421d" : "#8b4a20";
-    ctx.fillRect(left, top + h * 0.28, w, h * 0.72);
-    ctx.fillStyle = opened ? "#b56a2b" : "#b86a2e";
-    ctx.fillRect(left, top + h * 0.05, w, h * 0.32);
-    ctx.fillStyle = "#ffce54";
-    ctx.fillRect(left, top + h * 0.34, w, h * 0.1);
-    ctx.fillRect(left + w * 0.45, top + h * 0.05, w * 0.1, h * 0.95);
-    ctx.fillRect(left + w * 0.06, top + h * 0.16, w * 0.16, h * 0.12);
-    ctx.fillRect(left + w * 0.78, top + h * 0.16, w * 0.16, h * 0.12);
-    ctx.fillStyle = "#16110a";
-    ctx.fillRect(left + w * 0.47, top + h * 0.56, w * 0.06, h * 0.16);
-    if (opened) {
-      ctx.fillStyle = "#ffec9a";
-      ctx.fillRect(left + w * 0.18, top + h * 0.18, w * 0.64, h * 0.08);
-      ctx.fillStyle = "rgba(255,206,84,0.45)";
-      ctx.fillRect(left + w * 0.28, y + cellPx * 0.24, w * 0.44, h * 0.12);
-    }
-    ctx.strokeStyle = "#3a1f12";
-    ctx.lineWidth = Math.max(1, cellPx * 0.035);
-    ctx.strokeRect(left, top + h * 0.05, w, h * 0.95);
   },
 
   _drawGoalFlag(ctx, x, y, cellPx) {
@@ -1854,84 +1867,90 @@ class UIManager {
   }
   hideLabBadge() { document.getElementById("lab-id-badge").classList.add("hidden"); }
 
-  /** SYSTEM BOOT演出（毎回表示・約1秒） */
+  /** START後に毎回流す短縮SYSTEM BOOT（約1.2秒） */
   playBootSequence() {
     return new Promise((resolve) => {
-      ["boot-line-1", "boot-line-2", "boot-line-3", "boot-line-3b", "boot-line-4", "boot-line-5"].forEach((id) => {
+      this.showScreen("screen-boot");
+      const textMap = {
+        "boot-line-1": "SYSTEM BOOT...",
+        "boot-line-2": "LAB SYSTEM ONLINE",
+        "boot-line-3": "SUBJECT SESSION START",
+        "boot-line-3b": "OK",
+        "boot-line-4": "",
+        "boot-line-5": "WELCOME SUBJECT",
+      };
+      Object.keys(textMap).forEach((id) => {
         const el = document.getElementById(id);
-        if (el) el.classList.remove("show");
+        if (!el) return;
+        el.textContent = textMap[id];
+        el.classList.remove("show");
       });
       const bar = document.getElementById("boot-bar-inner");
       if (bar) bar.style.width = "0%";
-      const line1 = document.getElementById("boot-line-1");
-      const line2 = document.getElementById("boot-line-2");
-      const line3 = document.getElementById("boot-line-3");
-      const line3b = document.getElementById("boot-line-3b");
-      const ok = document.getElementById("boot-line-4");
-      const welcome = document.getElementById("boot-line-5");
-      if (line1) line1.textContent = "SYSTEM BOOT...";
-      if (line2) line2.textContent = "██████████";
-      if (line3) line3.textContent = "OK";
-      if (line3b) line3b.textContent = "";
-      setTimeout(() => line1 && line1.classList.add("show"), 80);
-      setTimeout(() => { if (bar) bar.style.width = "100%"; if (line2) line2.classList.add("show"); }, 220);
-      setTimeout(() => ok && ok.classList.add("show"), 520);
-      setTimeout(() => welcome && welcome.classList.add("show"), 700);
-      setTimeout(resolve, 1050);
+      ["boot-line-1", "boot-line-2", "boot-line-3", "boot-line-3b", "boot-line-5"].forEach((id, i) => {
+        setTimeout(() => document.getElementById(id).classList.add("show"), 80 + i * 160);
+      });
+      setTimeout(() => { if (bar) bar.style.width = "100%"; }, 180);
+      setTimeout(resolve, 1250);
     });
   }
 
-  /** START直後の任務説明。長文説明ではなく、今回の目的だけを伝える。 */
-  playMissionBriefing() {
+  /** 宝探し任務だけを伝えるMISSION BRIEFING。操作されるまで開始しない。 */
+  playBriefingSequence() {
     return new Promise((resolve) => {
       this.showScreen("screen-briefing");
       const logEl = document.getElementById("briefing-log");
       const promptEl = document.getElementById("briefing-prompt");
-      if (!logEl || !promptEl) { resolve(); return; }
       logEl.textContent = "";
       promptEl.classList.add("hidden");
+      promptEl.textContent = "ENTER / SPACE / クリック / タップ で任務開始 ▌";
       const lines = [
         "━━━━━━━━━━━━━━",
         "MISSION BRIEFING",
+        "研究施設 探索任務",
         "━━━━━━━━━━━━━━",
         "あなたの任務は",
         "ダンジョン内に眠る",
-        "『宝箱』を回収し、",
-        "脱出ポイントまで到達することです。",
-        "怪しい床には注意してください。",
+        "宝箱を回収し、",
+        "脱出ポイントへ到達することです。",
         "━━━━━━━━━━━━━━",
-        "Mission Accepted"
+        "注意事項",
+        "・怪しい床には注意してください",
+        "・転送装置が作動する場合があります",
+        "・探索ルートは自由です",
+        "━━━━━━━━━━━━━━",
+        "準備完了",
+        "ENTER / SPACE / クリック / タップ",
+        "で任務開始",
+        "━━━━━━━━━━━━━━",
       ];
-      let finished = false, lineIndex = 0, charIndex = 0, timer = null, autoTimer = null;
+      let line = 0, ch = 0, finished = false, timer = null;
       const cleanup = () => {
-        if (finished) return false;
-        finished = true;
-        if (timer) clearTimeout(timer);
-        if (autoTimer) clearTimeout(autoTimer);
         window.removeEventListener("keydown", onKey);
         window.removeEventListener("pointerdown", onPointer);
-        return true;
+        if (timer) clearTimeout(timer);
       };
-      const done = () => { if (cleanup()) resolve(); };
-      const onKey = (e) => { if (e.key === "Enter" || e.key === " ") done(); };
-      const onPointer = () => done();
+      const finish = () => {
+        if (finished || promptEl.classList.contains("hidden")) return;
+        finished = true;
+        cleanup();
+        resolve();
+      };
+      const onKey = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); finish(); } };
+      const onPointer = () => finish();
       window.addEventListener("keydown", onKey);
       window.addEventListener("pointerdown", onPointer);
-      const typeStep = () => {
+      const step = () => {
         if (finished) return;
-        if (lineIndex >= lines.length) {
-          promptEl.classList.remove("hidden");
-          autoTimer = setTimeout(done, 2800);
-          return;
-        }
-        const line = lines[lineIndex];
-        if (charIndex === 0 && logEl.textContent.length > 0) logEl.textContent += "\n";
-        logEl.textContent += line[charIndex] || "";
-        charIndex++;
-        if (charIndex >= line.length) { lineIndex++; charIndex = 0; timer = setTimeout(typeStep, 120); }
-        else timer = setTimeout(typeStep, 18);
+        if (line >= lines.length) { promptEl.classList.remove("hidden"); return; }
+        const current = lines[line];
+        if (ch === 0 && logEl.textContent.length > 0) logEl.textContent += "\n";
+        logEl.textContent += current[ch] || "";
+        ch++;
+        if (ch >= current.length) { line++; ch = 0; timer = setTimeout(step, 90); }
+        else timer = setTimeout(step, 16);
       };
-      typeStep();
+      step();
     });
   }
 
@@ -2140,10 +2159,11 @@ class ResultRenderer {
     document.getElementById("result-title").textContent = record.title;
     document.getElementById("result-ai-comment").textContent = record.comment;
     document.getElementById("result-subject-id").textContent = record.pid;
+    const topId = document.getElementById("result-subject-id-top");
+    if (topId) topId.textContent = record.pid;
+
     const reasonList = document.getElementById("result-reasons");
-    if (reasonList) {
-      reasonList.innerHTML = (record.reasoning || []).map((reason) => `<li>${reason}</li>`).join("");
-    }
+    if (reasonList) reasonList.innerHTML = (record.reasoning || []).map(r => `<li>${r}</li>`).join("");
 
     this._animateBar("bar-dfs", "pct-dfs", record.dfsScore);
     this._animateBar("bar-bfs", "pct-bfs", record.bfsScore);
@@ -2158,22 +2178,55 @@ class ResultRenderer {
     const diff = record.stepDiff;
     document.getElementById("stat-diff").textContent = (diff >= 0 ? "+" : "") + diff;
     document.getElementById("stat-rate").textContent = record.explorationRate + "%";
-    const normalEl = document.getElementById("stat-normal-shortest");
-    const gimmickEl = document.getElementById("stat-gimmick-shortest");
-    const noticeEl = document.getElementById("warp-shortest-notice");
-    if (normalEl) normalEl.textContent = record.normalIdealSteps;
-    if (gimmickEl) gimmickEl.textContent = record.gimmickIdealSteps;
-    if (noticeEl) {
-      noticeEl.textContent = record.warpImprovesShortest
-        ? "ワープ使用により最短ルートが更新されました"
-        : "今回は通常ルートが理論最短です";
-      noticeEl.className = record.warpImprovesShortest ? "route-notice active" : "route-notice";
+    document.getElementById("stat-normal-shortest").textContent = record.normalIdealSteps ?? player.normalIdealSteps;
+    document.getElementById("stat-gimmick-shortest").textContent = record.gimmickIdealSteps ?? player.gimmickIdealSteps;
+
+    const evalData = this._buildResearchEval(record);
+    document.getElementById("eval-quality").textContent = evalData.stars;
+    document.getElementById("eval-success").textContent = evalData.success + "%";
+    document.getElementById("eval-comment").textContent = evalData.comment;
+
+    const normalPath = maze.missionPath(false);
+    const gimmickPath = maze.missionPath(true);
+    const notice = document.getElementById("warp-shortest-notice");
+    if (notice) {
+      const normalLen = normalPath.length - 1;
+      const gimmickLen = gimmickPath.length - 1;
+      if ((record.gimmicks && record.gimmicks.warpUsed > 0)) {
+        notice.textContent = "ワープ使用により、あなたの探索ルートに転送行動が記録されました。";
+      } else if (gimmickLen < normalLen) {
+        notice.textContent = "このマップでは、転送装置を使うと理論最短が短くなる可能性があります。";
+      } else {
+        notice.textContent = "理論最短は通常経路を基準にしています。";
+      }
     }
 
-    const summary = maze.shortestRouteSummary();
     Renderer.drawRoute(document.getElementById("route-canvas-player"), maze, player.path, "#4deeea");
-    Renderer.drawRoute(document.getElementById("route-canvas-shortest"), maze, summary.normalPath, "#ffce54");
-    Renderer.drawRoute(document.getElementById("route-canvas-gimmick"), maze, summary.gimmickPath, "#ff2e6d");
+    Renderer.drawRoute(document.getElementById("route-canvas-shortest"), maze, normalPath, "#ffce54");
+    Renderer.drawRoute(document.getElementById("route-canvas-gimmick"), maze, gimmickPath, "#ff2e6d");
+  }
+
+  _buildResearchEval(record) {
+    const rate = Number(record.explorationRate) || 0;
+    const diff = Math.max(0, Number(record.stepDiff) || 0);
+    const steps = Math.max(1, Number(record.steps) || 1);
+    const pit = record.gimmicks?.pitfallHits || 0;
+    const warp = record.gimmicks?.warpUsed || 0;
+    let q = 3 + (rate >= 55 ? 1 : 0) + (rate >= 75 ? 1 : 0) + (diff > 8 ? 1 : 0);
+    q = clamp(q - (pit >= 2 ? 1 : 0), 1, 5);
+    const success = clamp(Math.round(99 - Math.min(18, diff * 1.2) + (rate >= 60 ? 2 : 0) - pit + (warp ? 1 : 0)), 82, 99);
+    const comments = [
+      "非常に興味深い被験者です。", "豊富な探索データが得られました。", "宝箱回収までの判断に強い個性が出ています。", "研究員がうなずくレベルのログです。", "迷路との会話量が多めでした。",
+      "効率的な探索データが記録されました。", "危険床への反応パターンを検出しました。", "転送装置への反応も記録されました。", "同じマスへの再訪から慎重さを検出しました。", "未探索領域への反応が明確です。",
+      "探索率が高く、解析材料がとても豊富です。", "最短との差が少なく、効率性が目立ちます。", "寄り道の多さが逆に良い研究データになりました。", "行き止まりへの到達ログが充実しています。", "AI評価：この足取り、保存価値あり。",
+      "AI評価：迷路攻略というより迷路面談でした。", "AI評価：床の怪しさに対する反応が取れました。", "AI評価：宝箱までの迷い方が人間らしいです。", "AI評価：予想より自由な探索でした。", "AI評価：実験室が少し盛り上がりました。",
+      "研究ログ：分岐での選択傾向が良好に採取されました。", "研究ログ：判断速度と探索範囲のバランスを確認。", "研究ログ：ルート選択に再現性があります。", "研究ログ：未知の道への接近傾向あり。", "研究ログ：安全確認行動を検出。",
+      "評価：ダンジョン側が少し戸惑っています。", "評価：寄り道も立派なデータです。", "評価：効率派の香りがします。", "評価：慎重派の足音がしました。", "評価：冒険者ギルドに提出可能です。",
+      "結果：宝箱だけでなく、行動パターンも回収しました。", "結果：AIがニヤリとする探索でした。", "結果：転送・罠・再訪のログが解析に効いています。", "結果：最短だけでは語れない良いデータです。", "結果：文化祭展示として大変ありがたい被験者です。",
+      "追加評価：一歩ごとに性格が出ていました。", "追加評価：探索ルートがよくしゃべっています。", "追加評価：安全運転型のダンジョン攻略です。", "追加評価：大胆さと慎重さのせめぎ合いを検出。", "追加評価：AI研究所的には拍手です。"
+    ];
+    let idx = (record.typeCode || "X").charCodeAt(0) + steps + diff + pit * 7 + warp * 11 + rate;
+    return { stars: "★★★★★☆☆☆☆☆".slice(5 - q, 10 - q), success, comment: comments[idx % comments.length] };
   }
 
   _renderCompareLine(elementId, myScore, avgScore) {
@@ -2215,19 +2268,14 @@ class ResultRenderer {
   renderExplainPersonal(record) {
     document.getElementById("explain-your-title").textContent = record.title;
     const list = document.getElementById("explain-reasons");
-    const reasons = (record.reasoning || []).slice();
-    if (record.dfsScore >= 55) reasons.push(`行き止まり・奥へ進む動きが多く、DFS適性が ${record.dfsScore}% まで伸びました。`);
-    if (record.bfsScore >= 55) reasons.push(`未探索マスを優先し、理論最短との差も小さかったため、BFS適性が ${record.bfsScore}% になりました。`);
-    if (record.linearScore >= 55) reasons.push(`分岐で選ぶ順番に一貫性があり、線形探索の特徴が ${record.linearScore}% 見られました。`);
-    if (record.warpImprovesShortest) reasons.push("この迷路ではワープ込み最短が通常最短より短く、理論最短として採用されています。");
-    list.innerHTML = reasons.map((reason) => `<li>${reason}</li>`).join("");
+    list.innerHTML = (record.reasoning || [])
+      .map((reason) => `<li>${reason}</li>`)
+      .join("");
     const links = document.getElementById("explain-score-links");
     if (links) {
       links.innerHTML = `
-        <p><strong>今回のスコア接続</strong></p>
-        <p>DFS ${record.dfsScore}%：奥へ進む・行き止まりまで確認する動き。</p>
-        <p>BFS ${record.bfsScore}%：近い未探索地点を広く確認し、最短に近づく動き。</p>
-        <p>線形探索 ${record.linearScore}%：一定の順番で一つずつ確認する動き。</p>
+        <p>今回のスコア：DFS ${record.dfsScore}% ／ BFS ${record.bfsScore}% ／ 線形探索 ${record.linearScore}%</p>
+        <p>行き止まり、未探索優先、再訪、最短との差、ワープや落とし穴への反応を組み合わせて判定しています。</p>
       `;
     }
   }
@@ -2345,6 +2393,18 @@ class ResultRenderer {
     return lines.slice(0, 4);
   }
 
+  renderTypeList() {
+    const grid = document.getElementById("type-list-grid");
+    Analyzer.ensureExpandedComments();
+    grid.innerHTML = Analyzer.TYPE_CATALOG.map(item => `
+      <article class="type-card">
+        <h3>${item.title}<span>${item.type}</span></h3>
+        <p>${item.feature}</p>
+        <dl><dt>なりやすい行動</dt><dd>${item.action}</dd><dt>一言コメント</dt><dd>${item.comment}</dd></dl>
+      </article>
+    `).join("");
+  }
+
   /** 「みんなの統計」ページを描画する */
   renderStats(stats) {
     document.getElementById("stats-total-players").textContent = stats.totalPlayers;
@@ -2434,11 +2494,8 @@ class GameManager {
   }
 
   init() {
-    document.getElementById("btn-start").addEventListener("click", () => this.startGameFlow());
-    document.getElementById("btn-howto").addEventListener("click", () => this.ui.showScreen("screen-howto"));
-    document.getElementById("btn-howto-back").addEventListener("click", () => this.ui.showScreen("screen-title"));
+    document.getElementById("btn-start").addEventListener("click", () => this.startNewGame());
     document.getElementById("btn-history").addEventListener("click", () => this.showStats());
-    document.getElementById("btn-retry").addEventListener("click", () => this.startGameFlow());
     // ⑪診断結果画面から「タイトルへ」を押した時だけ、エンディング演出を挟む
     document.getElementById("btn-title").addEventListener("click", () => this._finishAndGoToTitle());
     document.getElementById("btn-stats").addEventListener("click", () => this.showStats());
@@ -2446,13 +2503,9 @@ class GameManager {
     document.getElementById("btn-stats-title").addEventListener("click", () => this.goToTitle());
     document.getElementById("btn-explain").addEventListener("click", () => this.showExplain());
     document.getElementById("btn-explain-back").addEventListener("click", () => this.ui.showScreen("screen-result"));
+    document.getElementById("btn-type-list").addEventListener("click", () => this.showTypeList());
+    document.getElementById("btn-type-list-back").addEventListener("click", () => this.ui.showScreen("screen-result"));
     document.getElementById("btn-card-download").addEventListener("click", () => this.downloadCardImage());
-
-    // ④設定画面
-    document.getElementById("btn-settings").addEventListener("click", () => this.showSettings());
-    document.getElementById("btn-settings-back").addEventListener("click", () => this.ui.showScreen("screen-title"));
-    document.getElementById("btn-toggle-reduce-motion").addEventListener("click", () => this._toggleReduceMotion());
-    document.getElementById("btn-clear-history").addEventListener("click", () => this._confirmClearHistory());
     this._applyReduceMotionSetting();
 
     window.addEventListener("keydown", (e) => this._handleKey(e));
@@ -2531,7 +2584,7 @@ class GameManager {
   async _checkIdle() {
     const activeScreen = document.querySelector(".screen.active");
     if (!activeScreen || this.idleReturning) return;
-    const exempt = ["screen-title", "screen-boot", "screen-briefing", "screen-ending"];
+    const exempt = ["screen-title", "screen-boot", "screen-ending"];
     if (exempt.includes(activeScreen.id)) return;
     if (Date.now() - this.lastInteraction > this.IDLE_TIMEOUT_MS) {
       this.idleReturning = true;
@@ -2549,21 +2602,7 @@ class GameManager {
     }
   }
 
-  async startGameFlow() {
-    this.inputLocked = true;
-    this._stopTimer();
-    this.logManager.stop();
-    this.ui.clearTransientMessages();
-    this.ui.resetScrollPositions();
-    this.ui.hideLabBadge();
-    this.ui.hideRec();
-    this.ui.showScreen("screen-boot");
-    await this.ui.playBootSequence();
-    await this.ui.playMissionBriefing();
-    this.startNewGame();
-  }
-
-  startNewGame() {
+  async startNewGame() {
     this._stopTimer();
     this.logManager.stop();
     this.ui.clearTransientMessages();
@@ -2575,6 +2614,9 @@ class GameManager {
     this.ui.setRecRecording();
     this.logManager.startTicker("lab-log-ticker");
     this.logManager.startPopups("lab-popup");
+
+    await this.ui.playBootSequence();
+    await this.ui.playBriefingSequence();
 
     this.maze = new MazeGenerator(this.COLS, this.ROWS);
     this.player = new PlayerController(this.maze);
@@ -2711,11 +2753,9 @@ class GameManager {
       bfsScore: analysis.bfsScore,
       linearScore: analysis.linearScore,
       steps: analysis.stats.totalSteps,
+      stepDiff: analysis.stats.stepDiff,
       normalIdealSteps: analysis.stats.normalIdealSteps,
       gimmickIdealSteps: analysis.stats.gimmickIdealSteps,
-      idealSteps: analysis.stats.idealSteps,
-      warpImprovesShortest: analysis.stats.warpImprovesShortest,
-      stepDiff: analysis.stats.stepDiff,
       explorationRate: analysis.stats.explorationRate,
       elapsedSeconds: analysis.stats.elapsedSeconds,
       gimmicks: analysis.gimmicks,
@@ -2745,6 +2785,11 @@ class GameManager {
     const stats = await this.statistics.getAggregateStats();
     this.resultRenderer.renderStats(stats);
     this.ui.showScreen("screen-stats");
+  }
+
+  showTypeList() {
+    this.resultRenderer.renderTypeList();
+    this.ui.showScreen("screen-type-list");
   }
 
   /** ⑥アルゴリズム解説画面（直近の診断結果があれば、根拠つきで表示） */
@@ -2811,8 +2856,5 @@ window.addEventListener("DOMContentLoaded", async () => {
   const shownCard = await game.tryShowCardFromUrl();
   if (shownCard) return;
 
-  // SYSTEM BOOTは文化祭展示向けに毎回短く表示する
-  game.ui.showScreen("screen-boot");
-  await game.ui.playBootSequence();
   game.ui.showScreen("screen-title");
 });

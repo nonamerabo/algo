@@ -68,32 +68,11 @@
 
       <div class="title-buttons">
         <button id="btn-start" class="pixel-btn primary">START</button>
-        <button id="btn-howto" class="pixel-btn">遊び方</button>
         <button id="btn-history" class="pixel-btn">【みんなの履歴】</button>
-        <button id="btn-settings" class="pixel-btn small-btn">設定</button>
       </div>
-      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.1.6.3</p>
+      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.1.6.4</p>
     </div>
   </section>
-
-  <!-- ============================================================
-       画面2：遊び方
-  ============================================================ -->
-  <section id="screen-howto" class="screen">
-    <div class="crt-frame howto-frame">
-      <h2 class="panel-title">研究所資料</h2>
-      <ul class="howto-list">
-        <li><span class="key-badge">↑↓←→</span> または <span class="key-badge">W A S D</span> で移動します。スマホ・タブレットは画面下の矢印ボタンでも操作できます。</li>
-        <li>任務は <span class="hl-treasure">宝箱</span> を回収し、<span class="hl-goal">脱出ポイント</span> へ到達することです。</li>
-        <li><span class="hl-warp">ワープ</span> はショートカットにも遠回りにもなる転送装置です。結果画面ではワープ込み最短ルートも解析します。</li>
-        <li><span class="hl-pitfall">怪しい床</span> は落とし穴の可能性があります。ヒビ・影・ノイズのような違和感に注意してください。</li>
-        <li>クリア後、移動ログから DFS・BFS・線形探索っぽさをルールベースで診断します。</li>
-        <li>AIデータベースでは、今回の行動がどのアルゴリズムの特徴に近かったかを研究資料として読めます。</li>
-      </ul>
-      <button id="btn-howto-back" class="pixel-btn">もどる</button>
-    </div>
-  </section>
-
 
   <!-- ============================================================
        画面2.5：MISSION BRIEFING（START後の任務説明）
@@ -176,25 +155,6 @@
   </section>
 
   <!-- ============================================================
-       画面4.6：設定画面
-  ============================================================ -->
-  <section id="screen-settings" class="screen">
-    <div class="crt-frame howto-frame">
-      <h2 class="panel-title">設定</h2>
-      <div class="settings-row">
-        <p class="settings-label">アニメーションを軽減する</p>
-        <button id="btn-toggle-reduce-motion" class="pixel-btn">アニメーション軽減：OFF</button>
-      </div>
-      <div class="settings-row">
-        <p class="settings-label">この端末に保存された「みんなの履歴」をリセットします。</p>
-        <button id="btn-clear-history" class="pixel-btn danger">履歴をリセットする</button>
-        <p id="settings-feedback" class="settings-feedback hidden"></p>
-      </div>
-      <button id="btn-settings-back" class="pixel-btn">もどる</button>
-    </div>
-  </section>
-
-  <!-- ============================================================
        画面4.7：エンディング（研究所コンソール画面）
        診断結果画面から「タイトルへ」を押した時にのみ再生される。
        EndingManagerクラスがタイプライター表示・スキップ操作・
@@ -214,6 +174,11 @@
     <div class="result-scroll">
       <div class="crt-frame result-frame">
 
+        <div class="subject-file-block">
+          <p class="eyebrow">SUBJECT FILE</p>
+          <p class="subject-file-id">被験者 No.<span id="result-subject-id-top">------</span></p>
+        </div>
+        <p class="truth-reveal">あなたの思考を解析しました。</p>
         <p class="eyebrow">解析完了 - ANALYSIS REPORT</p>
         <h2 id="result-title" class="result-title">冒険家</h2>
         <p id="result-ai-comment" class="ai-comment">――</p>
@@ -223,10 +188,20 @@
           <ul id="result-reasons" class="reason-list"></ul>
         </div>
 
+        <div class="research-eval-block">
+          <h3 class="panel-title small">研究評価</h3>
+          <div class="stat-grid">
+            <div class="stat-box"><span class="stat-k">探索データ品質</span><span id="eval-quality" class="stat-v">★★★☆☆</span></div>
+            <div class="stat-box"><span class="stat-k">解析成功率</span><span id="eval-success" class="stat-v">95%</span></div>
+          </div>
+          <p id="eval-comment" class="ai-comment small">評価中...</p>
+        </div>
+
         <div class="result-primary-action">
           <button id="btn-explain" class="pixel-btn glow-new">
             AIデータベース<span class="new-badge">NEW</span>
           </button>
+          <button id="btn-type-list" class="pixel-btn">称号一覧</button>
         </div>
 
         <!-- 適性グラフ（あなた／みんなの平均との比較つき） -->
@@ -283,7 +258,6 @@
 
 
         <div class="result-buttons">
-          <button id="btn-retry" class="pixel-btn primary">もう一度実験する</button>
           <button id="btn-stats" class="pixel-btn">みんなの統計を見る</button>
           <button id="btn-title" class="pixel-btn">タイトルへ</button>
         </div>
@@ -425,6 +399,23 @@
 
         <div class="result-buttons">
           <button id="btn-explain-back" class="pixel-btn">結果へもどる</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============================================================
+       画面6.7：称号一覧 / タイプ図鑑
+  ============================================================ -->
+  <section id="screen-type-list" class="screen">
+    <div class="result-scroll">
+      <div class="crt-frame result-frame">
+        <p class="eyebrow">LAB ARCHIVE - TITLE INDEX</p>
+        <h2 class="panel-title">称号一覧</h2>
+        <div id="type-list-grid" class="type-list-grid"></div>
+        <div class="result-buttons">
+          <button id="btn-type-list-back" class="pixel-btn">結果へもどる</button>
         </div>
       </div>
     </div>
