@@ -20,6 +20,11 @@
 
 "use strict";
 
+// ブラウザが前回のスクロール位置を復元して、次の画面が下から始まるのを防ぐ
+if ("scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
+
 /* ================================================================
    共通ユーティリティ
 ================================================================ */
@@ -1568,15 +1573,26 @@ const Renderer = {
   },
 
   _drawPitfall(ctx, x, y, cellPx) {
-    const cx = x + cellPx * 0.5, cy = y + cellPx * 0.5;
-    ctx.fillStyle = "#3a0d0d";
+    // 初見殺しにならないよう、落ちる前から「怪しい床」と分かる表現にする
+    ctx.fillStyle = "#0a0d18";
+    ctx.fillRect(x + cellPx * 0.14, y + cellPx * 0.14, cellPx * 0.72, cellPx * 0.72);
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillRect(x + cellPx * 0.22, y + cellPx * 0.58, cellPx * 0.56, cellPx * 0.16);
+    ctx.strokeStyle = "#7c2f55";
+    ctx.lineWidth = Math.max(2, cellPx * 0.045);
     ctx.beginPath();
-    ctx.arc(cx, cy, cellPx * 0.26, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#120202";
-    ctx.beginPath();
-    ctx.arc(cx, cy, cellPx * 0.14, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(x + cellPx * 0.22, y + cellPx * 0.30);
+    ctx.lineTo(x + cellPx * 0.42, y + cellPx * 0.42);
+    ctx.lineTo(x + cellPx * 0.34, y + cellPx * 0.58);
+    ctx.lineTo(x + cellPx * 0.62, y + cellPx * 0.70);
+    ctx.moveTo(x + cellPx * 0.62, y + cellPx * 0.25);
+    ctx.lineTo(x + cellPx * 0.54, y + cellPx * 0.45);
+    ctx.lineTo(x + cellPx * 0.74, y + cellPx * 0.52);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,46,109,0.35)";
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(x + cellPx * (0.22 + i * 0.14), y + cellPx * (0.22 + (i % 2) * 0.42), cellPx * 0.06, cellPx * 0.06);
+    }
   },
 
   _drawRecovery(ctx, x, y, cellPx) {
@@ -1675,6 +1691,44 @@ class UIManager {
       if (el.id === screenId) el.classList.add("active");
       else el.classList.remove("active");
     });
+    this.resetScrollPositions();
+  }
+
+  resetScrollPositions() {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    document.querySelectorAll(".screen, .crt-frame, .result-scroll, .ending-console").forEach((el) => {
+      el.scrollTop = 0;
+      el.scrollLeft = 0;
+    });
+  }
+
+  clearTransientMessages() {
+    const floating = document.getElementById("floating-message");
+    if (floating) {
+      floating.textContent = "";
+      floating.classList.add("hidden");
+      floating.style.animation = "none";
+      void floating.offsetWidth;
+      floating.style.animation = "";
+    }
+    const treasurePopup = document.getElementById("treasure-popup");
+    if (treasurePopup) {
+      treasurePopup.classList.add("hidden");
+      treasurePopup.classList.remove("show");
+    }
+    const labPopup = document.getElementById("lab-popup");
+    if (labPopup) {
+      labPopup.classList.add("hidden");
+      labPopup.classList.remove("show");
+    }
+    const settingsFeedback = document.getElementById("settings-feedback");
+    if (settingsFeedback) settingsFeedback.classList.add("hidden");
+    const endingLog = document.getElementById("ending-log");
+    if (endingLog) endingLog.textContent = "";
+    const endingPrompt = document.getElementById("ending-prompt");
+    if (endingPrompt) endingPrompt.classList.add("hidden");
   }
 
   updateSteps(steps) { document.getElementById("hud-steps").textContent = steps; }
@@ -1825,24 +1879,25 @@ class UIManager {
 ================================================================ */
 class EndingManager {
   constructor() {
-    this.IDLE_TIMEOUT_MS = 30000; // 展示モード：30秒操作が無ければ自動でタイトルへ
+    this.IDLE_TIMEOUT_MS = 180000; // 展示モード：3分操作が無ければ自動でタイトルへ
     this.CHAR_DELAY_MS = 28;
     this.LINE_PAUSE_MS = 380;
   }
 
   /**
-   * エンディングを再生する。ENTER/SPACE/タップ、または30秒の無操作で
+   * エンディングを再生する。ENTER/SPACE/タップ、または3分の無操作で
    * 解決(resolve)される Promise を返す。
    * @param {string} subjectId 今回の被験者No.
    */
-  play(subjectId) {
+  play(subjectId, options = {}) {
     return new Promise((resolve) => {
+      const fast = !!options.fast;
       const logEl = document.getElementById("ending-log");
       const promptEl = document.getElementById("ending-prompt");
       logEl.textContent = "";
       promptEl.classList.add("hidden");
 
-      const lines = [
+      const normalLines = [
         "━━━━━━━━━━━━━━",
         "Experiment Finished",
         "━━━━━━━━━━━━━━",
@@ -1861,6 +1916,26 @@ class EndingManager {
         "COMPLETE",
         "━━━━━━━━━━━━━━",
       ];
+      const fastLines = [
+        "━━━━━━━━━━━━━━",
+        "Experiment Finished",
+        "━━━━━━━━━━━━━━",
+        "被験者No.",
+        String(subjectId),
+        "━━━━━━━━━━━━━━",
+        "行動データ",
+        "保存しました。",
+        "━━━━━━━━━━━━━━",
+        "ご協力ありがとうございました。",
+        "━━━━━━━━━━━━━━",
+        "STATUS",
+        "COMPLETE",
+        "━━━━━━━━━━━━━━",
+      ];
+      const lines = fast ? fastLines : normalLines;
+      const charDelay = fast ? Math.max(8, Math.round(this.CHAR_DELAY_MS * 0.45)) : this.CHAR_DELAY_MS;
+      const linePause = fast ? Math.max(90, Math.round(this.LINE_PAUSE_MS * 0.45)) : this.LINE_PAUSE_MS;
+      const promptDelay = fast ? 700 : 3000;
 
       let finished = false;
       let charTimerHandle = null;
@@ -1884,7 +1959,7 @@ class EndingManager {
       window.addEventListener("keydown", onKey);
       window.addEventListener("pointerdown", onPointer);
 
-      // ⑨展示モード：万一プロンプトが出た後も操作が無ければ、30秒で強制的に終える
+      // ⑨展示モード：万一プロンプトが出た後も操作が無ければ、3分で強制的に終える
       idleTimeoutHandle = setTimeout(finishNow, this.IDLE_TIMEOUT_MS);
 
       // ---- タイプライター表示 ----
@@ -1896,7 +1971,7 @@ class EndingManager {
           setTimeout(() => {
             if (finished) return;
             promptEl.classList.remove("hidden");
-          }, 3000);
+          }, promptDelay);
           return;
         }
         const line = lines[lineIndex];
@@ -1906,9 +1981,9 @@ class EndingManager {
         if (charIndex >= line.length) {
           lineIndex++;
           charIndex = 0;
-          charTimerHandle = setTimeout(typeStep, this.LINE_PAUSE_MS);
+          charTimerHandle = setTimeout(typeStep, linePause);
         } else {
-          charTimerHandle = setTimeout(typeStep, this.CHAR_DELAY_MS);
+          charTimerHandle = setTimeout(typeStep, charDelay);
         }
       };
       typeStep();
@@ -2167,13 +2242,13 @@ class ResultRenderer {
    ----------------------------------------------------------------
    すべてのクラスをつなぎ合わせ、SYSTEM BOOT→タイトル→ゲーム→
    解析演出→エンディング演出→結果→統計、という一連の流れを制御する
-   司令塔。⑪展示モード（30秒無操作でタイトルへ自動復帰）もここで管理する。
+   司令塔。⑪展示モード（3分無操作でタイトルへ自動復帰）もここで管理する。
 ================================================================ */
 class GameManager {
   constructor() {
     this.COLS = 11;
     this.ROWS = 9;
-    this.IDLE_TIMEOUT_MS = 30000;
+    this.IDLE_TIMEOUT_MS = 180000;
 
     this.ui = new UIManager();
     this.storage = new StorageManager();
@@ -2191,6 +2266,7 @@ class GameManager {
     this.timerHandle = null;
     this.animHandle = null;
     this.idleCheckHandle = null;
+    this.idleReturning = false;
     this.inputLocked = false;
 
     this.subjectId = generateSubjectId(); // ③START/リスタート時に必ず更新される
@@ -2274,8 +2350,10 @@ class GameManager {
   goToTitle() {
     this._stopTimer();
     this.logManager.stop();
+    this.ui.clearTransientMessages();
     this.ui.hideLabBadge();
     this.ui.hideRec();
+    this.inputLocked = false;
     this.ui.showScreen("screen-title");
   }
 
@@ -2285,22 +2363,39 @@ class GameManager {
     this.logManager.stop();
     this.ui.hideLabBadge();
     this.ui.hideRec();
+    this.ui.clearTransientMessages();
     this.ui.showScreen("screen-ending");
     await this.endingManager.play(this.subjectId);
-    this.ui.showScreen("screen-title");
+    this.goToTitle();
   }
 
-  _checkIdle() {
+  async _checkIdle() {
     const activeScreen = document.querySelector(".screen.active");
-    if (!activeScreen) return;
-    const exempt = ["screen-title", "screen-boot"];
+    if (!activeScreen || this.idleReturning) return;
+    const exempt = ["screen-title", "screen-boot", "screen-ending"];
     if (exempt.includes(activeScreen.id)) return;
     if (Date.now() - this.lastInteraction > this.IDLE_TIMEOUT_MS) {
+      this.idleReturning = true;
+      this._stopTimer();
+      this.logManager.stop();
+      this.ui.clearTransientMessages();
+      this.ui.hideLabBadge();
+      this.ui.hideRec();
+      this.inputLocked = true;
+      this.ui.showScreen("screen-ending");
+      await this.endingManager.play(this.subjectId || "------", { fast: true });
       this.goToTitle();
+      this.lastInteraction = Date.now();
+      this.idleReturning = false;
     }
   }
 
   startNewGame() {
+    this._stopTimer();
+    this.logManager.stop();
+    this.ui.clearTransientMessages();
+    this.ui.resetScrollPositions();
+    this.lastInteraction = Date.now();
     // ③STARTのたびに新しい被験者No.を発行する（過去の履歴は書き換えない）
     this.subjectId = generateSubjectId();
     this.ui.showLabBadge(this.subjectId);
@@ -2313,6 +2408,7 @@ class GameManager {
     this.revealed = new Set();
     this._revealCellAndNeighbors(0, 0);
     this.inputLocked = false;
+    this.player.moving = false;
 
     this.ui.updateMission("宝箱を見つけよう");
     this.ui.setTreasureAcquired(false);
