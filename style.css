@@ -1176,3 +1176,54 @@ body::before {
 @media (max-width: 480px) {
   .lab-log-ticker { max-width: 140px; }
 }
+
+/* ============================================================
+   Ver.1.6.3 MISSION BRIEFING / UX polish
+============================================================ */
+.briefing-console {
+  width: min(92vw, 720px);
+  max-height: 88vh;
+  padding: 30px clamp(18px, 5vw, 52px);
+  background: linear-gradient(180deg, rgba(13,20,36,0.96), rgba(5,7,13,0.98));
+  border: 2px solid var(--line-cyan-dim);
+  box-shadow: var(--border-glow), 0 0 42px rgba(77,238,234,0.12);
+  font-family: var(--font-pixel);
+  color: var(--line-cyan);
+  text-align: left;
+  overflow-y: auto;
+}
+.briefing-log {
+  min-height: 330px;
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 2;
+  font-size: clamp(10px, 2.5vw, 14px);
+  text-shadow: 0 0 10px rgba(77,238,234,0.45);
+}
+.briefing-prompt {
+  margin: 18px 0 0;
+  color: var(--line-amber);
+  font-family: var(--font-pixel);
+  font-size: clamp(10px, 2.5vw, 13px);
+  animation: blink 1s steps(2, start) infinite;
+}
+.result-primary-action {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0 22px;
+}
+.explain-score-links {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px dashed var(--line-cyan-dim);
+  background: rgba(77, 238, 234, 0.05);
+  color: var(--text-main);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.result-reason-block {
+  margin: 16px 0 8px;
+  padding: 12px;
+  border: 1px dashed var(--line-cyan-dim);
+  background: rgba(77, 238, 234, 0.045);
+}

@@ -72,7 +72,7 @@
         <button id="btn-history" class="pixel-btn">【みんなの履歴】</button>
         <button id="btn-settings" class="pixel-btn small-btn">設定</button>
       </div>
-      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.2.0</p>
+      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.1.6.3</p>
     </div>
   </section>
 
@@ -81,17 +81,27 @@
   ============================================================ -->
   <section id="screen-howto" class="screen">
     <div class="crt-frame howto-frame">
-      <h2 class="panel-title">遊び方</h2>
+      <h2 class="panel-title">研究所資料</h2>
       <ul class="howto-list">
-        <li><span class="key-badge">↑↓←→</span> または <span class="key-badge">W A S D</span> でキャラクターを動かします。</li>
-        <li>ダンジョンの中にある <span class="hl-treasure">宝箱</span> を見つけましょう。</li>
-        <li>宝箱を見つけたら <span class="hl-goal">ゴール地点</span> を目指してください。</li>
-        <li>ダンジョンには <span class="hl-key">鍵</span>・<span class="hl-door">隠し部屋</span>・<span class="hl-warp">ワープ</span>・<span class="hl-pitfall">落とし穴</span>・<span class="hl-recovery">回復ポイント</span>が隠れています。鍵は隠し部屋、回復ポイントは診断コメントに関係します。</li>
-        <li>床のヒビ・暗い床・ノイズのような <span class="hl-pitfall">怪しい床</span> には注意してください。</li>
-        <li>プレイ時間の目安は 3〜5分 です。じっくり探しても、まっすぐ進んでもOK！</li>
-        <li>スマホ・タブレットの場合は画面下の矢印ボタンでも操作できます。</li>
+        <li><span class="key-badge">↑↓←→</span> または <span class="key-badge">W A S D</span> で移動します。スマホ・タブレットは画面下の矢印ボタンでも操作できます。</li>
+        <li>任務は <span class="hl-treasure">宝箱</span> を回収し、<span class="hl-goal">脱出ポイント</span> へ到達することです。</li>
+        <li><span class="hl-warp">ワープ</span> はショートカットにも遠回りにもなる転送装置です。結果画面ではワープ込み最短ルートも解析します。</li>
+        <li><span class="hl-pitfall">怪しい床</span> は落とし穴の可能性があります。ヒビ・影・ノイズのような違和感に注意してください。</li>
+        <li>クリア後、移動ログから DFS・BFS・線形探索っぽさをルールベースで診断します。</li>
+        <li>AIデータベースでは、今回の行動がどのアルゴリズムの特徴に近かったかを研究資料として読めます。</li>
       </ul>
       <button id="btn-howto-back" class="pixel-btn">もどる</button>
+    </div>
+  </section>
+
+
+  <!-- ============================================================
+       画面2.5：MISSION BRIEFING（START後の任務説明）
+  ============================================================ -->
+  <section id="screen-briefing" class="screen">
+    <div class="briefing-console">
+      <pre id="briefing-log" class="briefing-log"></pre>
+      <p id="briefing-prompt" class="briefing-prompt hidden">▶ TAP / ENTER TO START<span class="ending-cursor">▌</span></p>
     </div>
   </section>
 
@@ -208,6 +218,17 @@
         <h2 id="result-title" class="result-title">冒険家</h2>
         <p id="result-ai-comment" class="ai-comment">――</p>
 
+        <div class="result-reason-block">
+          <h3 class="panel-title small">診断理由</h3>
+          <ul id="result-reasons" class="reason-list"></ul>
+        </div>
+
+        <div class="result-primary-action">
+          <button id="btn-explain" class="pixel-btn glow-new">
+            AIデータベース<span class="new-badge">NEW</span>
+          </button>
+        </div>
+
         <!-- 適性グラフ（あなた／みんなの平均との比較つき） -->
         <div class="aptitude-block">
           <div class="aptitude-row">
@@ -260,22 +281,20 @@
           </div>
         </div>
 
-        <!-- QRコード -->
-        <h3 class="panel-title small">診断カードをスマホで見る</h3>
-        <div class="qr-block">
-          <div id="qr-canvas-wrap" class="qr-canvas-wrap"></div>
-          <p class="qr-caption">QRコードを読み取ると、あなたの診断カードが表示されます</p>
-          <p id="qr-fallback-url" class="qr-fallback hidden"></p>
-        </div>
 
         <div class="result-buttons">
           <button id="btn-retry" class="pixel-btn primary">もう一度実験する</button>
-          <button id="btn-explain" class="pixel-btn glow-new">
-            AIデータベース<span class="new-badge">NEW</span>
-          </button>
           <button id="btn-stats" class="pixel-btn">みんなの統計を見る</button>
           <button id="btn-title" class="pixel-btn">タイトルへ</button>
         </div>
+        <!-- QRコード -->
+        <h3 class="panel-title small">診断カードをスマホで保存</h3>
+        <div class="qr-block">
+          <div id="qr-canvas-wrap" class="qr-canvas-wrap"></div>
+          <p class="qr-caption">診断カードをスマホで保存したい人向けのおまけ機能です</p>
+          <p id="qr-fallback-url" class="qr-fallback hidden"></p>
+        </div>
+
         <p class="footer-note">Subject ID: <span id="result-subject-id">------</span></p>
       </div>
     </div>
@@ -358,6 +377,7 @@
         <div id="explain-personal" class="explain-personal">
           <h3 class="panel-title small">今回あなたが「<span id="explain-your-title">――</span>」と診断された理由</h3>
           <ul id="explain-reasons" class="reason-list"></ul>
+          <div id="explain-score-links" class="explain-score-links"></div>
         </div>
 
         <div class="explain-card">
