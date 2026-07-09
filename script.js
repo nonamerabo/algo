@@ -2,7 +2,7 @@
    Algorithm Research Lab - script.js
    ----------------------------------------------------------------
    【クラス構成（保守性向上のため責務ごとに分離しています）】
-     MazeGenerator   : 迷路とマップギミック（鍵・扉・ワープ等）の生成
+     MazeGenerator   : 迷路とマップギミック（ワープ・落とし穴等）の生成
      PlayerController: プレイヤーの位置・移動・探索ログ・ギミック状態の記録
      Analyzer        : 探索ログからDFS/BFS/線形探索らしさを診断（ルールベース）
      StorageManager  : 診断結果の保存（今はlocalStorage／将来Firebase等に差し替え可能）
@@ -74,7 +74,7 @@ function shuffleArray(arr) {
    再帰的バックトラッカー法で、全マスが1本の通路網でつながった
    「木構造の迷路」を生成する。木構造なので、スタート→宝箱→ゴールの
    本筋ルートは必ず一意に定まり、それ以外の道は必ず行き止まりになる。
-   ⑩マップギミック（鍵・扉・ワープ・落とし穴・回復ポイント）は、
+   ⑩マップギミック（ワープ・落とし穴）は、
    すべて「本筋ルートから外れた行き止まり」にのみ配置することで、
    ギミックの有無にかかわらずゲームが必ずクリア可能であることを保証する。
 ================================================================ */
@@ -210,24 +210,18 @@ class MazeGenerator {
     };
 
     return {
-      key: takeOne(),
-      door: takeOne(),
       warpA: takeOne(),
       warpB: takeOne(),
       pitfall: takeOne(),
-      recovery: takeOne(),
     };
   }
 
   /** 指定セルにギミックがあれば種類を返す（無ければnull） */
   gimmickTypeAt(c, r) {
     const g = this.gimmicks;
-    if (g.key && g.key.c === c && g.key.r === r) return "key";
-    if (g.door && g.door.c === c && g.door.r === r) return "door";
     if (g.warpA && g.warpA.c === c && g.warpA.r === r) return "warpA";
     if (g.warpB && g.warpB.c === c && g.warpB.r === r) return "warpB";
     if (g.pitfall && g.pitfall.c === c && g.pitfall.r === r) return "pitfall";
-    if (g.recovery && g.recovery.c === c && g.recovery.r === r) return "recovery";
     return null;
   }
 
@@ -324,7 +318,7 @@ class MazeGenerator {
    PlayerController
    ----------------------------------------------------------------
    プレイヤーの位置管理・移動処理・探索ログの記録に加えて、
-   ⑩マップギミック（鍵・扉・ワープ・落とし穴・回復ポイント）との
+   ⑩マップギミック（ワープ・落とし穴）との
    やり取りの状態管理も担当する。
 ================================================================ */
 class PlayerController {
@@ -347,11 +341,8 @@ class PlayerController {
     this.endTime = null;
 
     // ⑩ギミック関連の状態
-    this.hasKey = false;
-    this.doorOpened = false;
     this.pitfallHits = 0;
     this.warpUsed = 0;
-    this.recoveryUsed = false;
   }
 
   startClock() { this.startTime = performance.now(); }
@@ -379,11 +370,7 @@ class PlayerController {
     const from = { c: this.c, r: this.r };
     const to = { c: this.c + d.dc, r: this.r + d.dr };
 
-    // 扉：鍵を持っていなければ通行不可（壁と同じ扱い）
     const gimmickType = this.maze.gimmickTypeAt(to.c, to.r);
-    if (gimmickType === "door" && !this.doorOpened && !this.hasKey) {
-      return { ...noop, message: "扉に鍵がかかっている…どこかで鍵を探そう" };
-    }
 
     this._recordMove(from, to);
     this.c = to.c;
@@ -394,16 +381,7 @@ class PlayerController {
       this.treasureCollected && this.treasureStepIndex === this.path.length - 1;
 
     let message = null;
-    if (gimmickType === "key" && !this.hasKey) {
-      this.hasKey = true;
-      message = "鍵を手に入れた！";
-    } else if (gimmickType === "door" && !this.doorOpened) {
-      this.doorOpened = true;
-      message = "隠し部屋を見つけた！";
-    } else if (gimmickType === "recovery" && !this.recoveryUsed) {
-      this.recoveryUsed = true;
-      message = "回復ポイントで気力を取り戻した";
-    } else if (gimmickType === "pitfall") {
+    if (gimmickType === "pitfall") {
       this.pitfallHits++;
       message = "落とし穴に落ちた…スタート地点に戻される！";
       this._teleportTo(this.maze.start);
@@ -726,7 +704,6 @@ const Analyzer = {
 
     // ⑩ギミックの利用状況を軽く加味する（危険を厭わない=DFS寄り、慎重=線形寄り）
     if (player.pitfallHits > 0) dfsScore += 6;
-    if (player.recoveryUsed) linearScore += 5;
     if (player.pitfallHits > 0) bfsScore -= 3 * player.pitfallHits;
 
     dfsScore = Math.round(clamp(dfsScore, 0, 100));
@@ -739,8 +716,8 @@ const Analyzer = {
     let typeCode = dominant;
     if (dfsScore >= 65 && bfsScore >= 65 && linearScore >= 65) {
       typeCode = "X"; // 全部高水準ならアルゴリズム博士
-    } else if (player.pitfallHits === 0 && player.doorOpened && Math.abs(player.stepDiff) <= idealSteps * 0.15) {
-      typeCode = "R"; // 危険回避タイプ：罠を踏まず、隠し部屋も見つけ、効率も良い
+    } else if (player.pitfallHits === 0 && Math.abs(player.stepDiff) <= idealSteps * 0.15) {
+      typeCode = "R"; // 危険回避タイプ：罠を踏まず、効率も良い
     } else if (player.pitfallHits >= 1 || player.warpUsed >= 1) {
       typeCode = "A"; // 型破りな挑戦者：危険な仕掛けに突っ込んだ・ワープを使った
     }
@@ -752,7 +729,7 @@ const Analyzer = {
     // ⑥「なぜこのタイプと診断されたのか」の根拠（プレイ内容ベース）
     const reasoning = this._buildReasoning(typeCode, {
       deadEndRatio, unexploredRatio, revisitRatio, diffRatio, systematicRatio,
-      doorOpened: player.doorOpened, pitfallHits: player.pitfallHits, warpUsed: player.warpUsed,
+      pitfallHits: player.pitfallHits, warpUsed: player.warpUsed,
     });
 
     return {
@@ -773,11 +750,8 @@ const Analyzer = {
         elapsedSeconds: Math.round(player.elapsedSeconds),
       },
       gimmicks: {
-        foundKey: player.hasKey,
-        doorOpened: player.doorOpened,
         pitfallHits: player.pitfallHits,
         warpUsed: player.warpUsed,
-        recoveryUsed: player.recoveryUsed,
       },
     };
   },
@@ -805,7 +779,6 @@ const Analyzer = {
     }
     if (typeCode === "R") {
       reasons.push("危険な仕掛け（落とし穴）に一度も引っかからなかった");
-      if (m.doorOpened) reasons.push("隠し部屋を安全に見つけ出した");
     }
     if (typeCode === "A") {
       if (m.pitfallHits > 0) reasons.push("落とし穴に落ちてもなお、探索をやめなかった");
@@ -1475,12 +1448,9 @@ const Renderer = {
         if (cell.E) { ctx.moveTo(x + cellPx, y); ctx.lineTo(x + cellPx, y + cellPx); }
         ctx.stroke();
 
-        // 宝箱：取得済みなら消す
-        if (c === maze.treasure.c && r === maze.treasure.r && !player.treasureCollected) {
-          ctx.fillStyle = "#ffce54";
-          ctx.fillRect(x + cellPx * 0.28, y + cellPx * 0.36, cellPx * 0.44, cellPx * 0.34);
-          ctx.fillStyle = "#8a6a1d";
-          ctx.fillRect(x + cellPx * 0.28, y + cellPx * 0.36, cellPx * 0.44, cellPx * 0.08);
+        // 宝箱：8bit RPG風。取得前は閉じた宝箱、取得後は開いた宝箱にする
+        if (c === maze.treasure.c && r === maze.treasure.r) {
+          Renderer._drawTreasure(ctx, x, y, cellPx, player.treasureCollected);
         }
         // ゴール：チェック柄のRPG風フラッグ
         if (c === maze.goal.c && r === maze.goal.r) {
@@ -1489,11 +1459,8 @@ const Renderer = {
 
         // ⑩マップギミックの描画
         const gimmick = maze.gimmickTypeAt(c, r);
-        if (gimmick === "key" && !player.hasKey) Renderer._drawKey(ctx, x, y, cellPx);
-        if (gimmick === "door" && !player.doorOpened) Renderer._drawDoor(ctx, x, y, cellPx);
         if (gimmick === "warpA" || gimmick === "warpB") Renderer._drawWarp(ctx, x, y, cellPx);
         if (gimmick === "pitfall") Renderer._drawPitfall(ctx, x, y, cellPx);
-        if (gimmick === "recovery" && !player.recoveryUsed) Renderer._drawRecovery(ctx, x, y, cellPx);
       }
     }
 
@@ -1509,12 +1476,41 @@ const Renderer = {
       ctx.fillStyle = "#ffce54";
       ctx.fillRect(px + cellPx * 0.36, py - cellPx * 0.06, cellPx * 0.28, cellPx * 0.16);
     }
-    if (player.hasKey) {
-      ctx.fillStyle = "#ffe27a";
-      ctx.beginPath();
-      ctx.arc(px + cellPx * 0.78, py + cellPx * 0.06, cellPx * 0.08, 0, Math.PI * 2);
-      ctx.fill();
+  },
+
+  _drawTreasure(ctx, x, y, cellPx, opened = false) {
+    const bx = x + cellPx * 0.22;
+    const by = y + cellPx * (opened ? 0.34 : 0.35);
+    const bw = cellPx * 0.56;
+    const bh = cellPx * 0.38;
+    // subtle glow / acquisition sparkle
+    ctx.save();
+    ctx.shadowColor = opened ? "rgba(255,206,84,0.85)" : "rgba(255,206,84,0.55)";
+    ctx.shadowBlur = Math.max(4, cellPx * 0.18);
+    ctx.fillStyle = "#3a2112";
+    ctx.fillRect(bx, by + bh * 0.18, bw, bh * 0.72);
+    ctx.fillStyle = "#7b421f";
+    ctx.fillRect(bx + bw * 0.06, by + bh * 0.28, bw * 0.88, bh * 0.48);
+    ctx.fillStyle = "#ffce54";
+    ctx.fillRect(bx, by + bh * 0.2, bw, bh * 0.12);
+    ctx.fillRect(bx + bw * 0.43, by + bh * 0.18, bw * 0.14, bh * 0.7);
+    ctx.fillRect(bx + bw * 0.12, by + bh * 0.7, bw * 0.12, bh * 0.12);
+    ctx.fillRect(bx + bw * 0.76, by + bh * 0.7, bw * 0.12, bh * 0.12);
+    if (opened) {
+      ctx.fillStyle = "#2a160c";
+      ctx.fillRect(bx + bw * 0.04, by - bh * 0.06, bw * 0.92, bh * 0.22);
+      ctx.fillStyle = "#ffed9a";
+      ctx.fillRect(bx + bw * 0.18, by + bh * 0.02, bw * 0.64, bh * 0.12);
+      ctx.fillStyle = "#72ff8a";
+      ctx.fillRect(bx + bw * 0.68, by - bh * 0.22, bw * 0.08, bh * 0.26);
+      ctx.fillRect(bx + bw * 0.74, by - bh * 0.12, bw * 0.18, bh * 0.08);
+    } else {
+      ctx.fillStyle = "#0a0e17";
+      ctx.fillRect(bx + bw * 0.47, by + bh * 0.50, bw * 0.06, bh * 0.16);
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillRect(bx + bw * 0.12, by + bh * 0.34, bw * 0.18, bh * 0.06);
     }
+    ctx.restore();
   },
 
   _drawGoalFlag(ctx, x, y, cellPx) {
@@ -1538,26 +1534,6 @@ const Renderer = {
     ctx.fillRect(poleX + halfW, poleTopY + half, halfW, half);
     ctx.fillStyle = "#26314f";
     ctx.fillRect(poleX - cellPx * 0.08, poleBottomY - cellPx * 0.03, cellPx * 0.24, cellPx * 0.06);
-  },
-
-  _drawKey(ctx, x, y, cellPx) {
-    const cx = x + cellPx * 0.5, cy = y + cellPx * 0.42;
-    ctx.fillStyle = "#ffe27a";
-    ctx.beginPath();
-    ctx.arc(cx - cellPx * 0.12, cy, cellPx * 0.14, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(cx - cellPx * 0.02, cy - cellPx * 0.04, cellPx * 0.26, cellPx * 0.08);
-    ctx.fillRect(cx + cellPx * 0.14, cy + cellPx * 0.02, cellPx * 0.06, cellPx * 0.1);
-  },
-
-  _drawDoor(ctx, x, y, cellPx) {
-    ctx.strokeStyle = "#c9a6ff";
-    ctx.lineWidth = Math.max(2, cellPx * 0.06);
-    ctx.strokeRect(x + cellPx * 0.28, y + cellPx * 0.2, cellPx * 0.44, cellPx * 0.6);
-    ctx.fillStyle = "#c9a6ff";
-    ctx.beginPath();
-    ctx.arc(x + cellPx * 0.5, y + cellPx * 0.5, cellPx * 0.06, 0, Math.PI * 2);
-    ctx.fill();
   },
 
   _drawWarp(ctx, x, y, cellPx) {
@@ -1593,13 +1569,6 @@ const Renderer = {
     for (let i = 0; i < 4; i++) {
       ctx.fillRect(x + cellPx * (0.22 + i * 0.14), y + cellPx * (0.22 + (i % 2) * 0.42), cellPx * 0.06, cellPx * 0.06);
     }
-  },
-
-  _drawRecovery(ctx, x, y, cellPx) {
-    const cx = x + cellPx * 0.5, cy = y + cellPx * 0.5;
-    ctx.fillStyle = "#7dffb0";
-    ctx.fillRect(cx - cellPx * 0.05, cy - cellPx * 0.2, cellPx * 0.1, cellPx * 0.4);
-    ctx.fillRect(cx - cellPx * 0.2, cy - cellPx * 0.05, cellPx * 0.4, cellPx * 0.1);
   },
 
   drawMinimap(ctx, maze, revealedSet, player) {
@@ -3159,6 +3128,135 @@ class GameManager {
     this.resultRenderer.renderTypeList(stats);
     this.ui.showScreen("screen-type-list");
   };
+
+  /* ================================================================
+     Ver.1.7.2 final polish overrides
+     -残すギミックをワープ/落とし穴に限定
+     -エンディング入力仕様を「1回目で全文表示、2回目でタイトルへ」へ変更
+  ================================================================ */
+  EndingManager.prototype.play = function(subjectId, options = {}) {
+    return new Promise((resolve) => {
+      const fast = !!options.fast;
+      const logEl = $("ending-log");
+      const promptEl = $("ending-prompt");
+      if (!logEl || !promptEl) { resolve(); return; }
+      logEl.textContent = "";
+      promptEl.classList.add("hidden");
+      promptEl.innerHTML = "入力でもう一度表示 / 次の入力でタイトルへ<span class=\"ending-cursor\">▌</span>";
+      const lines = [
+        "━━━━━━━━━━━━━━",
+        "Experiment Finished",
+        "━━━━━━━━━━━━━━",
+        "被験者No.", String(subjectId),
+        "━━━━━━━━━━━━━━",
+        "行動データ", "保存しました。",
+        "━━━━━━━━━━━━━━",
+        "ご協力ありがとうございました。",
+        "━━━━━━━━━━━━━━",
+        "STATUS", "COMPLETE",
+        "━━━━━━━━━━━━━━",
+      ];
+      const fullText = lines.join("\n");
+      const charDelay = fast ? 7 : 16;
+      const linePause = fast ? 45 : 120;
+      let lineIndex = 0, charIndex = 0, typing = true, complete = false, done = false;
+      let timer = null, autoTimer = null;
+      const cleanup = () => {
+        if (timer) clearTimeout(timer);
+        if (autoTimer) clearTimeout(autoTimer);
+        window.removeEventListener("keydown", onKey, true);
+        window.removeEventListener("pointerdown", onPointer, true);
+      };
+      const revealAll = () => {
+        if (complete) return;
+        if (timer) clearTimeout(timer);
+        typing = false; complete = true;
+        logEl.textContent = fullText;
+        promptEl.textContent = "ENTER・SPACE・タップでタイトルへ戻る";
+        promptEl.classList.remove("hidden");
+      };
+      const finish = () => {
+        if (done) return;
+        done = true; cleanup(); resolve();
+      };
+      const handleInput = (e) => {
+        if (e && e.type === "keydown" && !(e.key === "Enter" || e.key === " " || e.code === "Space")) return;
+        if (typing || !complete) { revealAll(); return; }
+        finish();
+      };
+      function onKey(e){ handleInput(e); }
+      function onPointer(e){ handleInput(e); }
+      window.addEventListener("keydown", onKey, true);
+      window.addEventListener("pointerdown", onPointer, true);
+      autoTimer = setTimeout(() => { revealAll(); setTimeout(finish, fast ? 1200 : 2200); }, fast ? 4500 : 9000);
+      const step = () => {
+        if (done || complete) return;
+        if (lineIndex >= lines.length) { revealAll(); return; }
+        const line = lines[lineIndex];
+        if (charIndex === 0 && logEl.textContent.length > 0) logEl.textContent += "\n";
+        if (charIndex < line.length) {
+          logEl.textContent += line[charIndex++];
+          timer = setTimeout(step, charDelay);
+        } else {
+          lineIndex++; charIndex = 0;
+          timer = setTimeout(step, linePause);
+        }
+      };
+      step();
+    });
+  };
+
+  // PlayerControllerの所持系プロパティは互換用に残しつつ、判定には使わない。
+  PlayerController.prototype.tryMove = function(dir) {
+    const noop = { moved: false, reachedGoal: false, treasureJustCollected: false, message: null };
+    if (this.moving) return noop;
+    const DIR_MAP = { up:{key:"N",dc:0,dr:-1}, down:{key:"S",dc:0,dr:1}, left:{key:"W",dc:-1,dr:0}, right:{key:"E",dc:1,dr:0} };
+    const d = DIR_MAP[dir];
+    if (!d) return noop;
+    const cell = this.maze.cellAt(this.c, this.r);
+    if (cell[d.key]) return noop;
+    const from = { c:this.c, r:this.r };
+    const to = { c:this.c+d.dc, r:this.r+d.dr };
+    const gimmickType = this.maze.gimmickTypeAt(to.c, to.r);
+    this._recordMove(from, to);
+    this.c = to.c; this.r = to.r; this.moving = true;
+    const treasureJustCollected = this.treasureCollected && this.treasureStepIndex === this.path.length - 1;
+    let message = null;
+    if (gimmickType === "pitfall") {
+      this.pitfallHits++;
+      message = "落とし穴に落ちた…スタート地点に戻される！";
+      this._teleportTo(this.maze.start);
+    } else if (gimmickType === "warpA" || gimmickType === "warpB") {
+      this.warpUsed++;
+      message = "ワープした！";
+      this._teleportTo(this.maze.warpDestination(gimmickType));
+    }
+    const reachedGoal = this.c === this.maze.goal.c && this.r === this.maze.goal.r;
+    return { moved:true, reachedGoal, treasureJustCollected, message };
+  };
+
+  // Analyzerから削除済みギミックの保存項目を除外し、危険回避判定を現行ギミックに合わせる。
+  const originalAnalyze172 = Analyzer.analyze.bind(Analyzer);
+  Analyzer.analyze = function(player) {
+    const result = originalAnalyze172(player);
+    result.gimmicks = {
+      pitfallHits: player.pitfallHits || 0,
+      warpUsed: player.warpUsed || 0,
+    };
+    if (result.typeCode === "R" && !result.reasoning.some((t)=>/危険|落とし穴|効率/.test(t))) {
+      result.reasoning.push("落とし穴を避けながら効率よく任務を完了した");
+    }
+    return result;
+  };
+
+  // Ver.1.7.2: 結果画面の重複ボタンを研究資料メニューへ統合したため、旧IDは使わない。
+  const originalRenderResult172 = ResultRenderer.prototype.renderResult;
+  ResultRenderer.prototype.renderResult = function(record, maze, player, averages, aggregateStats) {
+    originalRenderResult172.call(this, record, maze, player, averages, aggregateStats);
+    const notice = $("warp-shortest-notice");
+    if (notice) notice.classList.add("lab-status-notice");
+  };
+
 })();
 
 

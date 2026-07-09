@@ -179,104 +179,120 @@
   ============================================================ -->
   <section id="screen-result" class="screen">
     <div class="result-scroll">
-      <div class="crt-frame result-frame">
+      <div class="crt-frame result-frame report-frame">
 
-        <div class="subject-file-block">
+        <div class="subject-file-block report-subject-header">
           <p class="eyebrow">SUBJECT FILE</p>
           <p class="subject-file-id">被験者 No.<span id="result-subject-id-top">------</span></p>
-          <p class="subject-file-note">行動ログ照合完了 / 解析ファイルを展開します</p>
+          <p class="subject-file-note">行動ログ照合完了 / 解析レポートを展開します</p>
         </div>
+
         <p class="truth-reveal">あなたの思考を解析しました。</p>
-        <p class="eyebrow">解析完了 - ANALYSIS REPORT</p>
-        <h2 id="result-title" class="result-title">冒険家</h2>
-        <p id="result-ai-comment" class="ai-comment">――</p>
 
-        <div class="result-reason-block">
-          <h3 class="panel-title small">診断理由</h3>
-          <ul id="result-reasons" class="reason-list"></ul>
+        <div class="result-report-grid">
+          <section class="report-panel report-left">
+            <p class="eyebrow">PRIMARY RESULT</p>
+            <h2 id="result-title" class="result-title">冒険家</h2>
+
+            <div class="research-eval-block report-card accent-card">
+              <h3 class="panel-title small">研究評価</h3>
+              <div class="stat-grid compact-stat-grid">
+                <div class="stat-box"><span class="stat-k">探索データ品質</span><span id="eval-quality" class="stat-v">★★★☆☆</span></div>
+                <div class="stat-box"><span class="stat-k">解析成功率</span><span id="eval-success" class="stat-v">95%</span></div>
+              </div>
+              <p id="eval-comment" class="ai-comment small">評価中...</p>
+            </div>
+
+            <div class="research-stat-block report-card">
+              <h3 class="panel-title small">研究統計</h3>
+              <div class="stat-grid compact-stat-grid">
+                <div class="stat-box"><span class="stat-k">今回の称号</span><span id="research-current-title" class="stat-v">――</span></div>
+                <div class="stat-box"><span class="stat-k">獲得人数</span><span id="research-title-count" class="stat-v">0名</span></div>
+                <div class="stat-box"><span class="stat-k">割合</span><span id="research-title-rate" class="stat-v">0%</span></div>
+                <div class="stat-box"><span class="stat-k">レア度</span><span id="research-title-rarity" class="stat-v">★★★☆☆</span></div>
+              </div>
+              <p id="research-title-comment" class="ai-comment small">研究所データを照合中...</p>
+            </div>
+
+            <div class="report-card">
+              <h3 class="panel-title small">探索データ</h3>
+              <div class="stat-grid compact-stat-grid">
+                <div class="stat-box"><span class="stat-k">クリアタイム</span><span id="stat-time" class="stat-v">00:00</span></div>
+                <div class="stat-box"><span class="stat-k">歩数</span><span id="stat-steps" class="stat-v">0</span></div>
+                <div class="stat-box"><span class="stat-k">最短との差</span><span id="stat-diff" class="stat-v">+0</span></div>
+                <div class="stat-box"><span class="stat-k">探索率</span><span id="stat-rate" class="stat-v">0%</span></div>
+                <div class="stat-box"><span class="stat-k">通常最短</span><span id="stat-normal-shortest" class="stat-v">0</span></div>
+                <div class="stat-box"><span class="stat-k">ギミック込み最短</span><span id="stat-gimmick-shortest" class="stat-v">0</span></div>
+              </div>
+              <p id="warp-shortest-notice" class="route-notice lab-alert">最短ルートを解析中...</p>
+            </div>
+          </section>
+
+          <section class="report-panel report-right">
+            <p class="eyebrow">BEHAVIOR ANALYSIS</p>
+            <div class="aptitude-block report-card">
+              <div class="aptitude-row">
+                <span class="aptitude-label">DFS適性</span>
+                <div class="bar-track"><div id="bar-dfs" class="bar-fill bar-dfs"></div></div>
+                <span id="pct-dfs" class="aptitude-pct">0%</span>
+              </div>
+              <p id="compare-dfs" class="compare-line">みんなの平均と比較中...</p>
+
+              <div class="aptitude-row">
+                <span class="aptitude-label">BFS適性</span>
+                <div class="bar-track"><div id="bar-bfs" class="bar-fill bar-bfs"></div></div>
+                <span id="pct-bfs" class="aptitude-pct">0%</span>
+              </div>
+              <p id="compare-bfs" class="compare-line">みんなの平均と比較中...</p>
+
+              <div class="aptitude-row">
+                <span class="aptitude-label">線形探索適性</span>
+                <div class="bar-track"><div id="bar-linear" class="bar-fill bar-linear"></div></div>
+                <span id="pct-linear" class="aptitude-pct">0%</span>
+              </div>
+              <p id="compare-linear" class="compare-line">みんなの平均と比較中...</p>
+            </div>
+
+            <div class="report-card ai-comment-card">
+              <h3 class="panel-title small">AIコメント</h3>
+              <p id="result-ai-comment" class="ai-comment">――</p>
+            </div>
+
+            <div class="result-reason-block report-card">
+              <h3 class="panel-title small">診断理由</h3>
+              <ul id="result-reasons" class="reason-list"></ul>
+            </div>
+          </section>
         </div>
 
-        <div class="research-eval-block">
-          <h3 class="panel-title small">研究評価</h3>
-          <div class="stat-grid">
-            <div class="stat-box"><span class="stat-k">探索データ品質</span><span id="eval-quality" class="stat-v">★★★☆☆</span></div>
-            <div class="stat-box"><span class="stat-k">解析成功率</span><span id="eval-success" class="stat-v">95%</span></div>
+        <section class="report-wide report-card route-report-card">
+          <h3 class="panel-title small">ルート比較</h3>
+          <div class="route-compare">
+            <div class="route-box">
+              <p class="route-caption">あなたの探索ルート</p>
+              <canvas id="route-canvas-player" class="route-canvas"></canvas>
+            </div>
+            <div class="route-box">
+              <p class="route-caption">通常最短ルート</p>
+              <canvas id="route-canvas-shortest" class="route-canvas"></canvas>
+            </div>
+            <div class="route-box">
+              <p class="route-caption">ギミック込み最短ルート</p>
+              <canvas id="route-canvas-gimmick" class="route-canvas"></canvas>
+            </div>
           </div>
-          <p id="eval-comment" class="ai-comment small">評価中...</p>
-        </div>
+        </section>
 
-        <div class="result-primary-action">
-          <button id="btn-explain" class="pixel-btn glow-new">
-            AIデータベース<span class="new-badge">NEW</span>
-          </button>
-          <button id="btn-type-list" class="pixel-btn">称号一覧</button>
-        </div>
-
-        <!-- 適性グラフ（あなた／みんなの平均との比較つき） -->
-        <div class="aptitude-block">
-          <div class="aptitude-row">
-            <span class="aptitude-label">DFS適性</span>
-            <div class="bar-track"><div id="bar-dfs" class="bar-fill bar-dfs"></div></div>
-            <span id="pct-dfs" class="aptitude-pct">0%</span>
+        <section class="report-wide qr-report-card">
+          <h3 class="panel-title small">診断カードをスマホで保存</h3>
+          <div class="qr-block">
+            <div id="qr-canvas-wrap" class="qr-canvas-wrap"></div>
+            <p class="qr-caption">診断カードをスマホで保存したい人向けのおまけ機能です</p>
+            <p id="qr-fallback-url" class="qr-fallback hidden"></p>
           </div>
-          <p id="compare-dfs" class="compare-line">みんなの平均と比較中...</p>
+        </section>
 
-          <div class="aptitude-row">
-            <span class="aptitude-label">BFS適性</span>
-            <div class="bar-track"><div id="bar-bfs" class="bar-fill bar-bfs"></div></div>
-            <span id="pct-bfs" class="aptitude-pct">0%</span>
-          </div>
-          <p id="compare-bfs" class="compare-line">みんなの平均と比較中...</p>
-
-          <div class="aptitude-row">
-            <span class="aptitude-label">線形探索適性</span>
-            <div class="bar-track"><div id="bar-linear" class="bar-fill bar-linear"></div></div>
-            <span id="pct-linear" class="aptitude-pct">0%</span>
-          </div>
-          <p id="compare-linear" class="compare-line">みんなの平均と比較中...</p>
-        </div>
-
-        <!-- 数値スタッツ -->
-        <div class="stat-grid">
-          <div class="stat-box"><span class="stat-k">クリアタイム</span><span id="stat-time" class="stat-v">00:00</span></div>
-          <div class="stat-box"><span class="stat-k">歩数</span><span id="stat-steps" class="stat-v">0</span></div>
-          <div class="stat-box"><span class="stat-k">最短との差</span><span id="stat-diff" class="stat-v">+0</span></div>
-          <div class="stat-box"><span class="stat-k">探索率</span><span id="stat-rate" class="stat-v">0%</span></div>
-          <div class="stat-box"><span class="stat-k">通常最短</span><span id="stat-normal-shortest" class="stat-v">0</span></div>
-          <div class="stat-box"><span class="stat-k">ギミック込み最短</span><span id="stat-gimmick-shortest" class="stat-v">0</span></div>
-        </div>
-        <p id="warp-shortest-notice" class="route-notice lab-alert">最短ルートを解析中...</p>
-
-        <div class="research-stat-block">
-          <h3 class="panel-title small">研究統計</h3>
-          <div class="stat-grid">
-            <div class="stat-box"><span class="stat-k">今回の称号</span><span id="research-current-title" class="stat-v">――</span></div>
-            <div class="stat-box"><span class="stat-k">獲得人数</span><span id="research-title-count" class="stat-v">0名</span></div>
-            <div class="stat-box"><span class="stat-k">割合</span><span id="research-title-rate" class="stat-v">0%</span></div>
-            <div class="stat-box"><span class="stat-k">レア度</span><span id="research-title-rarity" class="stat-v">★★★☆☆</span></div>
-          </div>
-          <p id="research-title-comment" class="ai-comment small">研究所データを照合中...</p>
-        </div>
-
-        <!-- ルート比較（キャンバス3枚） -->
-        <h3 class="panel-title small">ルート比較</h3>
-        <div class="route-compare">
-          <div class="route-box">
-            <p class="route-caption">あなたの探索ルート</p>
-            <canvas id="route-canvas-player" class="route-canvas"></canvas>
-          </div>
-          <div class="route-box">
-            <p class="route-caption">通常最短ルート</p>
-            <canvas id="route-canvas-shortest" class="route-canvas"></canvas>
-          </div>
-          <div class="route-box">
-            <p class="route-caption">ギミック込み最短ルート</p>
-            <canvas id="route-canvas-gimmick" class="route-canvas"></canvas>
-          </div>
-        </div>
-
-
-        <div class="research-menu-block">
+        <section class="research-menu-block report-wide research-vault">
           <h3 class="panel-title small">研究資料</h3>
           <div class="research-menu-grid">
             <button id="btn-explain-menu" class="pixel-btn glow-new">AIデータベース<span class="new-badge">NEW</span></button>
@@ -284,17 +300,10 @@
             <button id="btn-stats" class="pixel-btn">みんなの研究データ</button>
           </div>
           <p class="howto-hint">※ 研究資料は解析完了後に開放されるデータベースです。</p>
-        </div>
+        </section>
 
-        <div class="result-buttons">
+        <div class="result-buttons report-footer-actions">
           <button id="btn-title" class="pixel-btn">タイトルへ</button>
-        </div>
-        <!-- QRコード -->
-        <h3 class="panel-title small">診断カードをスマホで保存</h3>
-        <div class="qr-block">
-          <div id="qr-canvas-wrap" class="qr-canvas-wrap"></div>
-          <p class="qr-caption">診断カードをスマホで保存したい人向けのおまけ機能です</p>
-          <p id="qr-fallback-url" class="qr-fallback hidden"></p>
         </div>
 
         <p class="footer-note">Subject ID: <span id="result-subject-id">------</span></p>
