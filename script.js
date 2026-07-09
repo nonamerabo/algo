@@ -1482,7 +1482,7 @@ const Renderer = {
     const u = cellPx / 16;
     const px = (n) => Math.round(n * u);
     const ox = x + px(3);
-    const oy = y + px(opened ? 4 : 5);
+    const oy = y + px(4);
     const R = (gx, gy, gw, gh, color) => {
       ctx.fillStyle = color;
       ctx.fillRect(ox + px(gx), oy + px(gy), px(gw), px(gh));
@@ -1491,56 +1491,64 @@ const Renderer = {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
 
-    // floor shadow + small treasure glow
-    ctx.shadowColor = opened ? "rgba(114,255,138,0.45)" : "rgba(255,206,84,0.62)";
-    ctx.shadowBlur = Math.max(5, cellPx * 0.16);
-    ctx.fillStyle = opened ? "rgba(114,255,138,0.10)" : "rgba(255,206,84,0.12)";
-    ctx.fillRect(x + px(3), y + px(12), px(10), px(2));
+    // シンプルでポップな8bit宝箱。小さくても「宝箱」と分かるよう形を優先する。
+    ctx.shadowColor = opened ? "rgba(77,238,234,0.28)" : "rgba(255,206,84,0.55)";
+    ctx.shadowBlur = Math.max(4, cellPx * 0.14);
+    ctx.fillStyle = opened ? "rgba(77,238,234,0.08)" : "rgba(255,206,84,0.10)";
+    ctx.fillRect(x + px(4), y + px(12), px(8), px(2));
     ctx.shadowBlur = 0;
 
     if (!opened) {
-      // closed 8bit RPG treasure chest: wood body, gold bands, visible lock
-      R(1, 4, 12, 1, "#2b170c");
-      R(0, 5, 14, 7, "#2b170c");
-      R(1, 5, 12, 6, "#6f3c1c");
-      R(2, 5, 10, 2, "#a95f2b");
-      R(2, 8, 10, 2, "#4a2714");
-      R(2, 10, 10, 1, "#8a4a22");
+      // closed cute chest: rounded lid, gold frame, center keyhole
+      R(2, 4, 10, 1, "#3a1d10");
+      R(1, 5, 12, 3, "#8b4a24");
+      R(2, 5, 10, 1, "#c96f31");
+      R(2, 7, 10, 1, "#5a2e19");
+      R(1, 8, 12, 4, "#6f3a1d");
+      R(2, 8, 10, 1, "#a75a2a");
+      R(2, 11, 10, 1, "#3a1d10");
 
-      // lid line / metal frame
-      R(1, 7, 12, 1, "#ffce54");
-      R(2, 4, 10, 1, "#d9902c");
-      R(0, 6, 2, 5, "#d9902c");
-      R(12, 6, 2, 5, "#d9902c");
-      R(6, 5, 2, 7, "#ffce54");
-      R(6, 8, 2, 3, "#fff2a3");
+      // gold trim kept chunky and readable
+      R(1, 8, 12, 1, "#ffcf4a");
+      R(1, 5, 2, 7, "#e6a63a");
+      R(11, 5, 2, 7, "#e6a63a");
+      R(6, 5, 2, 7, "#ffcf4a");
+      R(2, 5, 1, 1, "#fff1a8");
+      R(11, 5, 1, 1, "#fff1a8");
 
-      // lock hole and highlights
-      R(7, 9, 1, 2, "#05070d");
-      R(3, 6, 3, 1, "#d38b37");
-      R(9, 6, 2, 1, "#d38b37");
+      // lock plate + keyhole
+      R(5, 8, 4, 3, "#ffcf4a");
+      R(6, 9, 2, 2, "#05070d");
+      R(7, 10, 1, 1, "#05070d");
+
+      // tiny sparkle: attractive but not too noisy
+      R(13, 2, 1, 1, "#fff1a8");
+      R(12, 3, 3, 1, "#ffcf4a");
+      R(13, 4, 1, 1, "#fff1a8");
+      R(0, 3, 1, 1, "#fff1a8");
     } else {
-      // opened chest: same box, lid raised, empty dark interior
-      R(1, 7, 12, 6, "#2b170c");
-      R(2, 8, 10, 4, "#6f3c1c");
-      R(2, 8, 10, 1, "#a95f2b");
-      R(2, 11, 10, 1, "#4a2714");
-      R(0, 8, 2, 4, "#d9902c");
-      R(12, 8, 2, 4, "#d9902c");
-      R(6, 8, 2, 5, "#ffce54");
-      R(3, 7, 8, 2, "#10090a"); // empty inside
+      // opened chest: lid is clearly open, box remains intact and empty
+      R(2, 1, 10, 1, "#3a1d10");
+      R(1, 2, 12, 3, "#8b4a24");
+      R(2, 2, 10, 1, "#c96f31");
+      R(1, 5, 12, 1, "#ffcf4a");
 
-      // open lid, tilted upward but not broken
-      R(2, 2, 10, 1, "#2b170c");
-      R(1, 3, 12, 3, "#2b170c");
-      R(2, 3, 10, 2, "#8a4a22");
-      R(3, 3, 8, 1, "#d38b37");
-      R(2, 5, 10, 1, "#ffce54");
+      R(1, 8, 12, 4, "#6f3a1d");
+      R(2, 8, 10, 1, "#a75a2a");
+      R(2, 11, 10, 1, "#3a1d10");
+      R(1, 8, 12, 1, "#ffcf4a");
+      R(1, 8, 2, 4, "#e6a63a");
+      R(11, 8, 2, 4, "#e6a63a");
+      R(6, 8, 2, 4, "#ffcf4a");
 
-      // subtle completion sparkle / check mark
-      R(11, 1, 1, 2, "#72ff8a");
-      R(12, 2, 2, 1, "#72ff8a");
-      R(10, 3, 1, 1, "#b9ffc5");
+      // empty dark interior, not a broken box
+      R(3, 6, 8, 2, "#130a0b");
+      R(4, 7, 6, 1, "#28120e");
+      R(5, 9, 4, 2, "#26120c");
+
+      // small completion mark, kept pixel-art simple
+      R(12, 2, 1, 2, "#72ff8a");
+      R(13, 3, 2, 1, "#72ff8a");
     }
     ctx.restore();
   },
@@ -1571,50 +1579,51 @@ const Renderer = {
   _drawWarp(ctx, x, y, cellPx) {
     const u = cellPx / 16;
     const px = (n) => Math.round(n * u);
-    const cx = x + px(8);
-    const cy = y + px(8);
+    const R = (gx, gy, gw, gh, color) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(x + px(gx), y + px(gy), px(gw), px(gh));
+    };
 
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    ctx.shadowColor = "rgba(77,238,234,0.85)";
-    ctx.shadowBlur = Math.max(6, cellPx * 0.20);
 
-    // hologram pad / floating glow
-    ctx.fillStyle = "rgba(77,238,234,0.18)";
-    ctx.fillRect(x + px(4), y + px(12), px(8), px(2));
+    // AI研究所の小型転送装置：紫シアンの渦＋簡素な台座
+    ctx.shadowColor = "rgba(77,238,234,0.78)";
+    ctx.shadowBlur = Math.max(5, cellPx * 0.18);
+    R(4, 12, 8, 2, "rgba(77,238,234,0.18)");
     ctx.shadowBlur = 0;
 
-    // hexagonal digital gate made from pixel lines
-    ctx.strokeStyle = "#4deeea";
-    ctx.lineWidth = Math.max(2, px(1));
-    ctx.beginPath();
-    ctx.moveTo(cx, y + px(2));
-    ctx.lineTo(x + px(12), y + px(5));
-    ctx.lineTo(x + px(12), y + px(11));
-    ctx.lineTo(cx, y + px(14));
-    ctx.lineTo(x + px(4), y + px(11));
-    ctx.lineTo(x + px(4), y + px(5));
-    ctx.closePath();
-    ctx.stroke();
+    // base pad
+    R(4, 11, 8, 2, "#3b4657");
+    R(5, 10, 6, 1, "#7b8a9d");
+    R(6, 12, 1, 1, "#4deeea");
+    R(10, 12, 1, 1, "#4deeea");
+    R(4, 13, 8, 1, "#1b2333");
 
-    // portal swirl / transfer core
-    ctx.strokeStyle = "#8ffcff";
-    ctx.lineWidth = Math.max(1, px(1));
-    ctx.beginPath();
-    ctx.arc(cx, cy, px(4), Math.PI * 0.10, Math.PI * 1.55);
-    ctx.stroke();
-    ctx.strokeStyle = "#2a8cff";
-    ctx.beginPath();
-    ctx.arc(cx, cy, px(2), Math.PI * 1.10, Math.PI * 2.35);
-    ctx.stroke();
+    // pop 8bit portal ring
+    R(6, 2, 4, 1, "#b991ff");
+    R(4, 3, 2, 2, "#8a56ff");
+    R(10, 3, 2, 2, "#8a56ff");
+    R(3, 5, 2, 4, "#6a3cff");
+    R(11, 5, 2, 4, "#6a3cff");
+    R(4, 9, 2, 2, "#8a56ff");
+    R(10, 9, 2, 2, "#8a56ff");
+    R(6, 11, 4, 1, "#b991ff");
 
-    // small pixel sparks
-    ctx.fillStyle = "#bfffff";
-    ctx.fillRect(x + px(3), y + px(4), px(1), px(1));
-    ctx.fillRect(x + px(12), y + px(3), px(1), px(1));
-    ctx.fillRect(x + px(13), y + px(10), px(1), px(1));
-    ctx.fillStyle = "#4deeea";
-    ctx.fillRect(x + px(5), y + px(13), px(1), px(1));
+    // inner electronic swirl
+    R(6, 4, 4, 1, "#e4d4ff");
+    R(5, 5, 2, 1, "#b991ff");
+    R(8, 5, 3, 1, "#4deeea");
+    R(9, 6, 2, 1, "#b991ff");
+    R(6, 7, 4, 1, "#4deeea");
+    R(5, 8, 2, 1, "#b991ff");
+    R(7, 9, 4, 1, "#e4d4ff");
+
+    // few pixels of digital sparkle
+    R(2, 4, 1, 1, "#bfffff");
+    R(13, 5, 1, 1, "#b991ff");
+    R(3, 10, 1, 1, "#4deeea");
+    R(12, 10, 1, 1, "#bfffff");
     ctx.restore();
   },
 
@@ -1629,30 +1638,39 @@ const Renderer = {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
 
-    // suspicious floor tile: darker, slightly sunken, but not an obvious black hole
-    R(3, 3, 10, 10, "#0b1120");
-    R(4, 4, 8, 8, "#11172a");
-    R(4, 10, 8, 2, "rgba(0,0,0,0.34)");
-    R(3, 3, 10, 1, "rgba(77,238,234,0.08)");
-    R(3, 12, 10, 1, "rgba(0,0,0,0.34)");
+    // 電子空間のバグホール。普通の黒い穴ではなく、床データの欠損として見せる。
+    ctx.shadowColor = "rgba(143,95,255,0.45)";
+    ctx.shadowBlur = Math.max(4, cellPx * 0.13);
+    R(3, 3, 10, 10, "rgba(20,30,58,0.55)");
+    ctx.shadowBlur = 0;
 
-    // hairline cracks / noise pixels that careful players can notice
-    ctx.strokeStyle = "#7c2f55";
-    ctx.lineWidth = Math.max(1, px(1));
-    ctx.beginPath();
-    ctx.moveTo(x + px(5), y + px(5));
-    ctx.lineTo(x + px(7), y + px(7));
-    ctx.lineTo(x + px(6), y + px(9));
-    ctx.lineTo(x + px(9), y + px(11));
-    ctx.moveTo(x + px(10), y + px(4));
-    ctx.lineTo(x + px(9), y + px(7));
-    ctx.lineTo(x + px(12), y + px(8));
-    ctx.stroke();
+    // glitched floor plate
+    R(3, 3, 10, 10, "#0b1224");
+    R(4, 4, 8, 8, "#121b35");
+    R(5, 5, 6, 6, "#080b18");
+    R(6, 6, 4, 4, "#03050d");
 
-    R(5, 11, 1, 1, "rgba(255,46,109,0.30)");
-    R(11, 5, 1, 1, "rgba(255,46,109,0.25)");
-    R(4, 8, 1, 1, "rgba(77,238,234,0.14)");
-    R(12, 11, 1, 1, "rgba(0,0,0,0.35)");
+    // blue/purple broken data edge
+    R(4, 3, 3, 1, "#4deeea");
+    R(9, 3, 2, 1, "#8a56ff");
+    R(3, 5, 1, 3, "#4deeea");
+    R(12, 6, 1, 3, "#8a56ff");
+    R(4, 12, 3, 1, "#8a56ff");
+    R(9, 12, 3, 1, "#4deeea");
+
+    // pixel collapse / RGB glitch fragments
+    R(2, 6, 1, 1, "#ff2e6d");
+    R(13, 4, 1, 1, "#4deeea");
+    R(11, 11, 2, 1, "#ff2e6d");
+    R(5, 10, 1, 1, "#b991ff");
+    R(10, 5, 1, 1, "#4deeea");
+    R(7, 4, 1, 1, "rgba(255,255,255,0.35)");
+
+    // tiny inward swirl hint, readable but not too obvious
+    R(7, 6, 3, 1, "#6a3cff");
+    R(9, 7, 1, 2, "#4deeea");
+    R(6, 9, 3, 1, "#6a3cff");
+    R(6, 7, 1, 2, "#4deeea");
     ctx.restore();
   },
 

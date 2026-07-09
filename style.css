@@ -2171,3 +2171,82 @@ body::before {
   box-shadow: none;
   transform: rotate(45deg);
 }
+
+/* ============================================================
+   Final icon polish: 8bit pop treasure badge
+   マップ描画の新アイコンに合わせ、HUDの宝箱だけをシンプルで可愛い8bit表現へ統一
+============================================================ */
+.treasure-badge {
+  gap: 8px;
+}
+.treasure-icon {
+  position: relative;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 14px;
+  display: inline-block;
+  background: #6f3a1d;
+  border: 2px solid #2b170c;
+  border-radius: 2px;
+  box-shadow:
+    inset 0 2px 0 #b9662c,
+    inset 0 -2px 0 #3a1d10,
+    0 0 9px rgba(255, 206, 84, 0.34);
+  animation: treasureIdleGlow 1.7s ease-in-out infinite;
+  overflow: visible;
+}
+.treasure-icon::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: -6px;
+  height: 7px;
+  background: #8b4a24;
+  border: 2px solid #2b170c;
+  border-radius: 3px 3px 1px 1px;
+  box-shadow: inset 0 2px 0 #c96f31;
+}
+.treasure-icon::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: -2px;
+  width: 5px;
+  height: 15px;
+  background: #ffcf4a;
+  box-shadow:
+    -8px 8px 0 -2px #e6a63a,
+    8px 8px 0 -2px #e6a63a,
+    0 8px 0 -1px #05070d;
+}
+.treasure-badge.acquired .treasure-icon {
+  background: #5a2e19;
+  border-color: #2b170c;
+  box-shadow:
+    inset 0 2px 0 #8b4a24,
+    inset 0 -2px 0 #30180d,
+    0 0 8px rgba(77, 238, 234, 0.24);
+  animation: none;
+}
+.treasure-badge.acquired .treasure-icon::before {
+  top: -10px;
+  left: 1px;
+  right: 1px;
+  height: 7px;
+  background: #8b4a24;
+  box-shadow: inset 0 2px 0 #c96f31;
+  transform: rotate(-10deg);
+  transform-origin: left bottom;
+}
+.treasure-badge.acquired .treasure-icon::after {
+  left: 4px;
+  top: 3px;
+  width: 12px;
+  height: 4px;
+  background: #130a0b;
+  box-shadow:
+    3px 6px 0 -1px #ffcf4a,
+    8px -7px 0 -2px #72ff8a;
+  transform: none;
+}
