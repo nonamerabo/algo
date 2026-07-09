@@ -21,12 +21,14 @@
   --line-magenta: #ff2e6d;
   --line-amber: #ffce54;
   /* マップ上の落とし穴専用色。Canvas側から読み取り、雰囲気を変えずにアイコンだけ差し替える */
-  --pitfall-core: #08090b;
-  --pitfall-rim: #ffd166;
-  --pitfall-warning: #ffb000;
-  --pitfall-danger: #11131a;
-  --pitfall-crack: #ff4d6d;
-  --pitfall-shadow: rgba(255, 177, 0, 0.56);
+  --pitfall-frame: #56606a;
+  --pitfall-frame-dark: #232a31;
+  --pitfall-tile: #7b858c;
+  --pitfall-tile-dark: #485058;
+  --pitfall-dirt: #4b3425;
+  --pitfall-hole: #050607;
+  --pitfall-crack: #171a1e;
+  --pitfall-shadow: rgba(0, 0, 0, 0.42);
   --text-main: #e7f1ff;
   --text-dim: #7c8bb0;
   --wall-color: #26314f;

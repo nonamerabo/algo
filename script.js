@@ -3644,7 +3644,7 @@ window.addEventListener("DOMContentLoaded", async () => {
    - 変更対象はマップ上の落とし穴アイコンのみ
    - Canvas描画の最終上書きなので、実際のゲーム画面に反映される
    - 判定・位置・迷路生成・ワープ・宝箱・ゴールは変更しない
-   - ワープと誤認しないよう、丸い渦ではなく「黄黒の壊れた床パネル」にする
+   - 選択デザイン：8bit パターン⑦「崩れた床（穴）」
 ================================================================ */
 (() => {
   const readCssColor = (name, fallback) => {
@@ -3665,78 +3665,85 @@ window.addEventListener("DOMContentLoaded", async () => {
       );
     };
 
-    const amber = readCssColor("--pitfall-rim", "#ffd166");
-    const warning = readCssColor("--pitfall-warning", "#ffb000");
-    const danger = readCssColor("--pitfall-danger", "#11131a");
-    const crack = readCssColor("--pitfall-crack", "#ff4d6d");
-    const core = readCssColor("--pitfall-core", "#08090b");
-    const glow = readCssColor("--pitfall-shadow", "rgba(255,177,0,0.56)");
+    const frame = readCssColor("--pitfall-frame", "#56606a");
+    const frameDark = readCssColor("--pitfall-frame-dark", "#232a31");
+    const tile = readCssColor("--pitfall-tile", "#7b858c");
+    const tileDark = readCssColor("--pitfall-tile-dark", "#485058");
+    const dirt = readCssColor("--pitfall-dirt", "#4b3425");
+    const hole = readCssColor("--pitfall-hole", "#050607");
+    const crack = readCssColor("--pitfall-crack", "#171a1e");
+    const glow = readCssColor("--pitfall-shadow", "rgba(0, 0, 0, 0.42)");
 
     ctx.save();
     ctx.imageSmoothingEnabled = false;
 
-    // 24bitカラーの警告床パネル。
-    // ワープの丸い青紫ゲートと被らないよう、四角・黄黒・大きな×印で識別させる。
+    // 8bit パターン⑦：崩れた床と縦穴。
+    // ワープのような「丸い渦」や「青紫の光」を使わず、石・土・黒穴で識別する。
     ctx.shadowColor = glow;
-    ctx.shadowBlur = Math.max(5, cellPx * 0.16);
-    R(2, 2, 12, 12, "rgba(255, 177, 0, 0.12)");
+    ctx.shadowBlur = Math.max(3, cellPx * 0.10);
+    R(2, 2, 12, 12, "rgba(0, 0, 0, 0.18)");
     ctx.shadowBlur = 0;
 
-    // 外側のラボ床パネル。既存の研究所風ドット絵には馴染ませる。
-    R(3, 2, 10, 1, "#4b3a17");
-    R(2, 3, 12, 1, "#2b2a22");
-    R(2, 4, 12, 9, "#151923");
-    R(3, 13, 10, 1, "#2b2a22");
-    R(4, 14, 8, 1, "#4b3a17");
+    // 外枠：研究所マップに馴染む金属フレーム。
+    R(3, 2, 10, 1, "#9aa3aa");
+    R(2, 3, 12, 1, frame);
+    R(2, 4, 1, 9, frameDark);
+    R(13, 4, 1, 9, "#151a20");
+    R(3, 13, 10, 1, frameDark);
+    R(4, 14, 8, 1, "#10151a");
 
-    // 黄黒の警告テープ。上下左右に配置して、遠目でもワープと別物にする。
-    R(4, 3, 2, 1, amber);
-    R(6, 3, 2, 1, danger);
-    R(8, 3, 2, 1, amber);
-    R(10, 3, 2, 1, danger);
-    R(4, 12, 2, 1, danger);
-    R(6, 12, 2, 1, amber);
-    R(8, 12, 2, 1, danger);
-    R(10, 12, 2, 1, amber);
-    R(3, 5, 1, 2, amber);
-    R(3, 7, 1, 2, danger);
-    R(3, 9, 1, 2, amber);
-    R(12, 5, 1, 2, danger);
-    R(12, 7, 1, 2, amber);
-    R(12, 9, 1, 2, danger);
+    // 背景の床石。穴のまわりに崩れたタイルが残っている形。
+    R(4, 4, 8, 8, tileDark);
+    R(4, 4, 3, 2, tile);
+    R(9, 4, 3, 2, "#8c969c");
+    R(4, 10, 3, 2, "#6b747b");
+    R(9, 10, 3, 2, tile);
+    R(4, 6, 2, 4, "#59626a");
+    R(10, 6, 2, 4, "#59626a");
 
-    // 中央は穴ではなく「割れた危険床」。丸い渦に見えないよう四角ベースにする。
-    R(5, 5, 6, 6, "#222633");
-    R(6, 6, 4, 4, core);
-    R(5, 6, 1, 4, "#0e1118");
-    R(10, 6, 1, 4, "#0e1118");
-    R(6, 5, 4, 1, "#333849");
-    R(6, 10, 4, 1, "#090b10");
+    // 崩落した土の断面。黄色黒や赤い×印ではなく、自然な壊れ方にする。
+    R(5, 5, 6, 1, dirt);
+    R(4, 6, 8, 1, "#3d291d");
+    R(4, 7, 8, 4, "#2a1c16");
+    R(5, 11, 6, 1, "#1d1410");
 
-    // 大きな×印。ゲーム中の一瞬の視認でも「危険マス」と分かる主役記号。
-    R(5, 5, 2, 2, warning);
-    R(9, 5, 2, 2, warning);
-    R(7, 7, 2, 2, "#fff0a6");
-    R(5, 9, 2, 2, warning);
-    R(9, 9, 2, 2, warning);
-    R(6, 6, 1, 1, "#5b3300");
-    R(9, 6, 1, 1, "#5b3300");
-    R(6, 9, 1, 1, "#5b3300");
-    R(9, 9, 1, 1, "#5b3300");
+    // 中央の縦穴。四角めで黒く、ワープの円形エフェクトと明確に違う。
+    R(6, 6, 4, 1, "#15100e");
+    R(5, 7, 6, 1, hole);
+    R(5, 8, 6, 2, "#010203");
+    R(6, 10, 4, 1, hole);
+    R(7, 11, 2, 1, "#000000");
 
-    // ひび割れと赤い異常ドット。ポップさは残しつつ、床破損として見せる。
+    // 穴の奥行き：少ない縦線で「下に落ちる」印象を出す。
+    R(6, 7, 1, 4, "#12171c");
+    R(9, 7, 1, 3, "#171c22");
+    R(7, 6, 1, 1, "#2c3338");
+    R(8, 6, 1, 1, "#20262b");
+
+    // 石の破片。遠目でギザギザの崩れた床に見えるよう配置。
+    R(4, 4, 2, 1, "#aab2b6");
+    R(6, 5, 1, 1, "#c1c7ca");
+    R(10, 4, 2, 1, "#b2b9bd");
+    R(11, 5, 1, 2, "#6e777d");
+    R(4, 10, 1, 2, "#737d84");
+    R(5, 11, 2, 1, "#98a1a7");
+    R(9, 11, 2, 1, "#818b92");
+    R(11, 10, 1, 1, "#b4bcc0");
+
+    // ひび割れ。選択案⑦らしく、危険サインより床の破損を主役にする。
     R(7, 4, 1, 2, crack);
-    R(8, 4, 1, 1, crack);
-    R(4, 7, 2, 1, crack);
-    R(10, 8, 2, 1, crack);
+    R(8, 5, 1, 1, crack);
+    R(10, 5, 1, 1, crack);
+    R(5, 6, 1, 1, crack);
+    R(4, 8, 1, 1, crack);
+    R(11, 8, 1, 1, crack);
     R(8, 10, 1, 2, crack);
-    R(11, 11, 1, 1, "#ff7a90");
 
-    // 角の小さなネオンだけ残し、作品全体のサイバー研究所感に合わせる。
-    R(2, 2, 1, 1, "#4deeea");
-    R(13, 2, 1, 1, "#4deeea");
-    R(2, 13, 1, 1, "#4deeea");
-    R(13, 13, 1, 1, "#4deeea");
+    // 角の小さな金属ハイライト。ゲーム全体の研究所感だけ残す。
+    R(2, 2, 1, 1, "#d8e1e7");
+    R(13, 2, 1, 1, "#b8c1c8");
+    R(2, 13, 1, 1, "#8e979f");
+    R(13, 13, 1, 1, "#707980");
     R(5, 4, 1, 1, "#ffffff");
 
     ctx.restore();
