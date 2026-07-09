@@ -3638,3 +3638,95 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Ver.1.7: SYSTEM BOOTはSTART後に毎回表示する。初期表示はすぐタイトルへ。
   game.ui.showScreen("screen-title");
 });
+
+/* ================================================================
+   Final map pitfall icon override
+   - 変更対象はマップ上の落とし穴アイコンのみ
+   - Canvas描画の最終上書きなので、実際のゲーム画面に反映される
+   - 判定・位置・迷路生成・ワープ・宝箱・ゴールは変更しない
+================================================================ */
+(() => {
+  const readCssColor = (name, fallback) => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  };
+
+  Renderer._drawPitfall = function(ctx, x, y, cellPx) {
+    const u = cellPx / 16;
+    const px = (n) => Math.round(n * u);
+    const R = (gx, gy, gw, gh, color) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(
+        x + px(gx),
+        y + px(gy),
+        Math.max(1, px(gw)),
+        Math.max(1, px(gh))
+      );
+    };
+
+    const core = readCssColor("--pitfall-core", "#050814");
+    const rim = readCssColor("--pitfall-rim", "#4deeea");
+    const warn = readCssColor("--pitfall-warning", "#ff2e6d");
+    const glow = readCssColor("--pitfall-shadow", "rgba(77,238,234,0.55)");
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    // 研究所の床パネルが一枚だけ壊れている「データ落下孔」。
+    // 黒い穴に寄せすぎず、既存のシアン/マゼンタの研究所UIに馴染ませる。
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = Math.max(4, cellPx * 0.16);
+    R(3, 4, 10, 9, "rgba(77,238,234,0.10)");
+    ctx.shadowBlur = 0;
+
+    // 床パネルの外形。四角いタイル感を残して、ゲームの雰囲気を壊さない。
+    R(4, 3, 8, 1, "#2a3a66");
+    R(3, 4, 10, 1, "#17284f");
+    R(2, 5, 12, 2, "#101f3e");
+    R(2, 7, 12, 4, "#0b1733");
+    R(3, 11, 10, 2, "#101f3e");
+    R(4, 13, 8, 1, "#17284f");
+
+    // 中央を六角形っぽく欠損させ、落とし穴として一目で分かる形にする。
+    R(6, 5, 4, 1, "#18285a");
+    R(5, 6, 6, 1, "#0d1740");
+    R(4, 7, 8, 3, core);
+    R(5, 10, 6, 1, "#02040b");
+    R(6, 11, 4, 1, "#010208");
+
+    // ネオン縁取り。ワープとは違う「危険床」感を出すため、下側に警告色を混ぜる。
+    R(6, 4, 4, 1, "#bfffff");
+    R(4, 5, 2, 1, rim);
+    R(10, 5, 2, 1, rim);
+    R(3, 6, 1, 3, rim);
+    R(12, 6, 1, 3, "#8a56ff");
+    R(4, 11, 2, 1, "#8a56ff");
+    R(10, 11, 2, 1, rim);
+    R(6, 12, 4, 1, warn);
+
+    // 「スタートに戻る罠」らしい下向きの吸い込みライン。
+    R(7, 6, 2, 1, "#e4d4ff");
+    R(8, 7, 2, 1, rim);
+    R(6, 8, 4, 1, "#8a56ff");
+    R(7, 9, 2, 1, rim);
+    R(7, 10, 2, 1, "#b991ff");
+
+    // 壊れた床のひび割れと小さなデータ欠片。
+    R(3, 3, 1, 1, "#314574");
+    R(12, 4, 1, 1, "#314574");
+    R(4, 6, 1, 1, "#26346d");
+    R(5, 7, 1, 1, "#26346d");
+    R(10, 6, 1, 1, "#26346d");
+    R(11, 8, 1, 1, "#26346d");
+    R(2, 12, 2, 1, rim);
+    R(13, 10, 2, 1, "#b991ff");
+    R(13, 3, 1, 1, warn);
+    R(5, 14, 1, 1, warn);
+    R(11, 14, 1, 1, "#bfffff");
+
+    // 左上の白ドットでポップな8bit感を残す。
+    R(4, 4, 1, 1, "#ffffff");
+    ctx.restore();
+  };
+})();
+
