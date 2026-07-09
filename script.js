@@ -1479,70 +1479,37 @@ const Renderer = {
   },
 
   _drawTreasure(ctx, x, y, cellPx, opened = false) {
-    // Release Polish: 取得前は「閉じた宝箱」、取得後は壊れた箱に見えない
-    // 「開封済みの空宝箱」として読めるよう、フタ・内側・金具を分けて描く。
-    const bx = x + cellPx * 0.20;
-    const by = y + cellPx * 0.32;
-    const bw = cellPx * 0.60;
-    const bh = cellPx * 0.42;
-    const px = Math.max(1, cellPx * 0.035);
-
+    const bx = x + cellPx * 0.22;
+    const by = y + cellPx * (opened ? 0.34 : 0.35);
+    const bw = cellPx * 0.56;
+    const bh = cellPx * 0.38;
+    // subtle glow / acquisition sparkle
     ctx.save();
-    ctx.shadowColor = opened ? "rgba(114,255,138,0.45)" : "rgba(255,206,84,0.62)";
-    ctx.shadowBlur = Math.max(4, cellPx * 0.16);
-
-    if (opened) {
-      // 奥へ倒れたフタ。RPGの「空箱」に見えるよう、箱本体から分離しすぎない角度にする。
-      ctx.fillStyle = "#2b160c";
-      ctx.fillRect(bx + bw * 0.08, by - bh * 0.18, bw * 0.84, bh * 0.26);
-      ctx.fillStyle = "#8a4a22";
-      ctx.fillRect(bx + bw * 0.12, by - bh * 0.15, bw * 0.76, bh * 0.18);
-      ctx.fillStyle = "#ffce54";
-      ctx.fillRect(bx + bw * 0.08, by - bh * 0.03, bw * 0.84, bh * 0.07);
-
-      // 空の内側
-      ctx.fillStyle = "#12080a";
-      ctx.fillRect(bx + bw * 0.06, by + bh * 0.10, bw * 0.88, bh * 0.22);
-      ctx.fillStyle = "#2a1209";
-      ctx.fillRect(bx + bw * 0.14, by + bh * 0.15, bw * 0.72, bh * 0.10);
-    } else {
-      // 丸みのある閉じたフタ
-      ctx.fillStyle = "#2b160c";
-      ctx.fillRect(bx + bw * 0.03, by, bw * 0.94, bh * 0.26);
-      ctx.fillStyle = "#8a4a22";
-      ctx.fillRect(bx + bw * 0.08, by + bh * 0.03, bw * 0.84, bh * 0.18);
-      ctx.fillStyle = "#d38b37";
-      ctx.fillRect(bx + bw * 0.12, by + bh * 0.05, bw * 0.22, bh * 0.05);
-    }
-
-    // 木箱本体
-    ctx.fillStyle = "#2b160c";
-    ctx.fillRect(bx, by + bh * 0.24, bw, bh * 0.68);
-    ctx.fillStyle = "#6f3c1c";
-    ctx.fillRect(bx + bw * 0.06, by + bh * 0.30, bw * 0.88, bh * 0.50);
-    ctx.fillStyle = "#a85f2a";
-    ctx.fillRect(bx + bw * 0.10, by + bh * 0.34, bw * 0.22, bh * 0.08);
-    ctx.fillRect(bx + bw * 0.58, by + bh * 0.54, bw * 0.22, bh * 0.07);
-
-    // 金具・縁取り・鍵穴
+    ctx.shadowColor = opened ? "rgba(255,206,84,0.85)" : "rgba(255,206,84,0.55)";
+    ctx.shadowBlur = Math.max(4, cellPx * 0.18);
+    ctx.fillStyle = "#3a2112";
+    ctx.fillRect(bx, by + bh * 0.18, bw, bh * 0.72);
+    ctx.fillStyle = "#7b421f";
+    ctx.fillRect(bx + bw * 0.06, by + bh * 0.28, bw * 0.88, bh * 0.48);
     ctx.fillStyle = "#ffce54";
-    ctx.fillRect(bx, by + bh * 0.25, bw, bh * 0.10);
-    ctx.fillRect(bx + bw * 0.44, by + bh * 0.21, bw * 0.12, bh * 0.65);
-    ctx.fillRect(bx + bw * 0.10, by + bh * 0.72, bw * 0.13, bh * 0.12);
-    ctx.fillRect(bx + bw * 0.77, by + bh * 0.72, bw * 0.13, bh * 0.12);
-    ctx.fillStyle = opened ? "#72ff8a" : "#080b12";
+    ctx.fillRect(bx, by + bh * 0.2, bw, bh * 0.12);
+    ctx.fillRect(bx + bw * 0.43, by + bh * 0.18, bw * 0.14, bh * 0.7);
+    ctx.fillRect(bx + bw * 0.12, by + bh * 0.7, bw * 0.12, bh * 0.12);
+    ctx.fillRect(bx + bw * 0.76, by + bh * 0.7, bw * 0.12, bh * 0.12);
     if (opened) {
-      // 取得済みチェック。箱に貼られた小さな完了サインとして自然に見せる。
-      ctx.fillRect(bx + bw * 0.66, by + bh * 0.40, bw * 0.08, bh * 0.26);
-      ctx.fillRect(bx + bw * 0.72, by + bh * 0.58, bw * 0.20, bh * 0.08);
+      ctx.fillStyle = "#2a160c";
+      ctx.fillRect(bx + bw * 0.04, by - bh * 0.06, bw * 0.92, bh * 0.22);
+      ctx.fillStyle = "#ffed9a";
+      ctx.fillRect(bx + bw * 0.18, by + bh * 0.02, bw * 0.64, bh * 0.12);
+      ctx.fillStyle = "#72ff8a";
+      ctx.fillRect(bx + bw * 0.68, by - bh * 0.22, bw * 0.08, bh * 0.26);
+      ctx.fillRect(bx + bw * 0.74, by - bh * 0.12, bw * 0.18, bh * 0.08);
     } else {
-      ctx.fillRect(bx + bw * 0.48, by + bh * 0.50, bw * 0.04 + px, bh * 0.16);
+      ctx.fillStyle = "#0a0e17";
+      ctx.fillRect(bx + bw * 0.47, by + bh * 0.50, bw * 0.06, bh * 0.16);
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillRect(bx + bw * 0.12, by + bh * 0.34, bw * 0.18, bh * 0.06);
     }
-
-    // ドット絵らしいハイライト
-    ctx.fillStyle = "rgba(255,255,255,0.58)";
-    ctx.fillRect(bx + bw * 0.12, by + bh * 0.38, bw * 0.14, bh * 0.05);
-    if (!opened) ctx.fillRect(bx + bw * 0.62, by + bh * 0.10, bw * 0.12, bh * 0.04);
     ctx.restore();
   },
 
@@ -3404,6 +3371,84 @@ class GameManager {
   };
 })();
 
+
+
+/* ================================================================
+   Ver.2.0 RC Final polish overrides
+   - ワープ解析通知をアイコン/タイトル/本文に分離
+   - 適性バーと数値を1秒前後で同期アニメーション
+   - 研究評価の星を順番に点灯
+================================================================ */
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+
+  ResultRenderer.prototype._animateBar = function(barId, pctId, value) {
+    const bar = $(barId);
+    const pct = $(pctId);
+    const target = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    const duration = 1000;
+    const start = performance.now();
+    if (bar) {
+      bar.style.width = "0%";
+      bar.style.transition = "none";
+      // 強制リフローで毎回0%から気持ちよく伸ばす
+      void bar.offsetWidth;
+      bar.style.transition = "width 1s cubic-bezier(.16, 1, .3, 1)";
+      requestAnimationFrame(() => { bar.style.width = target + "%"; });
+    }
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const current = Math.round(target * easeOutCubic(t));
+      if (pct) pct.textContent = current + "%";
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+
+  function buildLabNotice(title, body) {
+    return `
+      <span class="lab-alert-icon" aria-hidden="true">ⓘ</span>
+      <span class="lab-alert-title">${esc(title)}</span>
+      <span class="lab-alert-body">${esc(body)}</span>
+    `;
+  }
+
+  function animateStars(el, starsText) {
+    if (!el) return;
+    const onCount = (starsText.match(/★/g) || []).length;
+    el.innerHTML = `<span class="eval-stars" aria-label="${esc(starsText)}">${Array.from({ length: 5 }, (_, i) => `<span class="star${i < onCount ? " target" : ""}">★</span>`).join("")}</span>`;
+    const stars = Array.from(el.querySelectorAll(".star.target"));
+    stars.forEach((star, i) => {
+      setTimeout(() => star.classList.add("on"), 120 + i * 120);
+    });
+  }
+
+  const previousRenderResultFinal = ResultRenderer.prototype.renderResult;
+  ResultRenderer.prototype.renderResult = function(record, maze, player, averages, aggregateStats) {
+    previousRenderResultFinal.call(this, record, maze, player, averages, aggregateStats);
+
+    const notice = $("warp-shortest-notice");
+    if (notice) {
+      notice.className = "route-notice lab-alert";
+      const normal = typeof normalMissionPath === "function" ? normalMissionPath(maze) : [];
+      const gimmick = typeof gimmickMissionPath === "function" ? gimmickMissionPath(maze) : [];
+      const normalSteps = typeof pathSteps === "function" ? pathSteps(normal) : 0;
+      const gimmickSteps = typeof pathSteps === "function" ? pathSteps(gimmick) : 0;
+      let body = "このマップでは通常経路が理論最短として採用されました。";
+      if ((record.gimmicks?.warpUsed || 0) > 0) {
+        body = "ワープ使用により、あなたの探索ルートに転送行動が記録されました。";
+      } else if (gimmickSteps < normalSteps) {
+        body = "このマップでは、転送装置を使うと理論最短が短くなる可能性があります。";
+      }
+      notice.innerHTML = buildLabNotice("解析ステータス", body);
+    }
+
+    const evalQuality = $("eval-quality");
+    if (evalQuality) animateStars(evalQuality, evalQuality.textContent || "★★★☆☆");
+  };
+})();
 
 /* ================================================================
    初期化処理
