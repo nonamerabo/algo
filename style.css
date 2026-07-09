@@ -2063,8 +2063,26 @@ body::before {
   outline-offset: 3px;
 }
 
-/* Ver.2.0 RC Final Polish+ : DATAラベルのレイヤー修正のみ
-   デザイン・サイズ・配置は変更せず、カード内要素より前面に出す。 */
+
+/* ============================================================
+   Ver.2.0 RC Final DATA visibility fix
+   - DATAアイコンのデザインは維持し、親カードのクリップだけを解除
+   - カード内要素より前面に出す
+============================================================ */
+.report-card,
+.report-wide {
+  overflow: visible;
+}
+.report-card::after,
+.report-wide::after {
+  z-index: 0;
+  pointer-events: none;
+}
+.report-card > *,
+.report-wide > * {
+  position: relative;
+  z-index: 1;
+}
 .research-eval-block,
 .research-stat-block,
 .research-menu-block {
@@ -2074,12 +2092,6 @@ body::before {
 .research-eval-block::before,
 .research-stat-block::before,
 .research-menu-block::before {
-  z-index: 50;
+  z-index: 60;
   pointer-events: none;
-}
-.research-eval-block > *,
-.research-stat-block > *,
-.research-menu-block > * {
-  position: relative;
-  z-index: 1;
 }
