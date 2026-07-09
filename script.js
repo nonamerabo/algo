@@ -1479,66 +1479,36 @@ const Renderer = {
   },
 
   _drawTreasure(ctx, x, y, cellPx, opened = false) {
-    const bx = x + cellPx * 0.18;
-    const by = y + cellPx * 0.28;
-    const bw = cellPx * 0.64;
-    const bh = cellPx * 0.46;
-    const px = Math.max(1, Math.floor(cellPx / 18));
+    const bx = x + cellPx * 0.22;
+    const by = y + cellPx * (opened ? 0.34 : 0.35);
+    const bw = cellPx * 0.56;
+    const bh = cellPx * 0.38;
+    // subtle glow / acquisition sparkle
     ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.shadowColor = opened ? "rgba(125,255,176,0.85)" : "rgba(255,206,84,0.8)";
-    ctx.shadowBlur = Math.max(6, cellPx * 0.22);
-
-    if (!opened) {
-      // closed lid
-      ctx.fillStyle = "#2b160b";
-      ctx.fillRect(bx + bw * 0.08, by + bh * 0.04, bw * 0.84, bh * 0.16);
-      ctx.fillStyle = "#a85d28";
-      ctx.fillRect(bx + bw * 0.02, by + bh * 0.12, bw * 0.96, bh * 0.24);
-      ctx.fillStyle = "#d98533";
-      ctx.fillRect(bx + bw * 0.08, by + bh * 0.16, bw * 0.84, bh * 0.08);
-      ctx.fillStyle = "#ffce54";
-      ctx.fillRect(bx + bw * 0.44, by + bh * 0.08, bw * 0.12, bh * 0.30);
-      ctx.fillRect(bx + bw * 0.06, by + bh * 0.30, bw * 0.88, bh * 0.10);
-    } else {
-      // opened lid tilted up
-      ctx.fillStyle = "#2b160b";
-      ctx.fillRect(bx + bw * 0.05, by - bh * 0.08, bw * 0.90, bh * 0.14);
-      ctx.fillStyle = "#a85d28";
-      ctx.fillRect(bx - bw * 0.02, by + bh * 0.02, bw * 0.86, bh * 0.18);
-      ctx.fillStyle = "#ffce54";
-      ctx.fillRect(bx + bw * 0.34, by - bh * 0.02, bw * 0.12, bh * 0.22);
-      ctx.fillStyle = "rgba(255,237,154,0.9)";
-      ctx.fillRect(bx + bw * 0.12, by + bh * 0.12, bw * 0.62, bh * 0.06);
-    }
-
-    // body
+    ctx.shadowColor = opened ? "rgba(255,206,84,0.85)" : "rgba(255,206,84,0.55)";
+    ctx.shadowBlur = Math.max(4, cellPx * 0.18);
     ctx.fillStyle = "#3a2112";
-    ctx.fillRect(bx, by + bh * 0.34, bw, bh * 0.58);
+    ctx.fillRect(bx, by + bh * 0.18, bw, bh * 0.72);
     ctx.fillStyle = "#7b421f";
-    ctx.fillRect(bx + bw * 0.06, by + bh * 0.40, bw * 0.88, bh * 0.42);
-    ctx.fillStyle = "#4a2512";
-    ctx.fillRect(bx + bw * 0.06, by + bh * 0.74, bw * 0.88, bh * 0.12);
-
-    // metal bands and latch
+    ctx.fillRect(bx + bw * 0.06, by + bh * 0.28, bw * 0.88, bh * 0.48);
     ctx.fillStyle = "#ffce54";
-    ctx.fillRect(bx + bw * 0.43, by + bh * 0.30, bw * 0.14, bh * 0.60);
-    ctx.fillRect(bx + bw * 0.05, by + bh * 0.52, bw * 0.90, bh * 0.10);
-    ctx.fillRect(bx + bw * 0.12, by + bh * 0.78, bw * 0.14, bh * 0.12);
-    ctx.fillRect(bx + bw * 0.74, by + bh * 0.78, bw * 0.14, bh * 0.12);
-    ctx.fillStyle = "#05070d";
-    ctx.fillRect(bx + bw * 0.485, by + bh * 0.60, Math.max(px * 2, bw * 0.045), bh * 0.15);
-
-    // highlights / acquired check
+    ctx.fillRect(bx, by + bh * 0.2, bw, bh * 0.12);
+    ctx.fillRect(bx + bw * 0.43, by + bh * 0.18, bw * 0.14, bh * 0.7);
+    ctx.fillRect(bx + bw * 0.12, by + bh * 0.7, bw * 0.12, bh * 0.12);
+    ctx.fillRect(bx + bw * 0.76, by + bh * 0.7, bw * 0.12, bh * 0.12);
     if (opened) {
-      ctx.fillStyle = "#7dffb0";
-      ctx.fillRect(bx + bw * 0.68, by + bh * 0.12, bw * 0.08, bh * 0.32);
-      ctx.fillRect(bx + bw * 0.74, by + bh * 0.32, bw * 0.20, bh * 0.08);
+      ctx.fillStyle = "#2a160c";
+      ctx.fillRect(bx + bw * 0.04, by - bh * 0.06, bw * 0.92, bh * 0.22);
+      ctx.fillStyle = "#ffed9a";
+      ctx.fillRect(bx + bw * 0.18, by + bh * 0.02, bw * 0.64, bh * 0.12);
+      ctx.fillStyle = "#72ff8a";
+      ctx.fillRect(bx + bw * 0.68, by - bh * 0.22, bw * 0.08, bh * 0.26);
+      ctx.fillRect(bx + bw * 0.74, by - bh * 0.12, bw * 0.18, bh * 0.08);
     } else {
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      ctx.fillRect(bx + bw * 0.12, by + bh * 0.44, bw * 0.18, bh * 0.06);
-      ctx.fillStyle = "rgba(255,206,84,0.7)";
-      ctx.fillRect(bx + bw * 0.82, by + bh * 0.08, bw * 0.08, bh * 0.08);
+      ctx.fillStyle = "#0a0e17";
+      ctx.fillRect(bx + bw * 0.47, by + bh * 0.50, bw * 0.06, bh * 0.16);
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillRect(bx + bw * 0.12, by + bh * 0.34, bw * 0.18, bh * 0.06);
     }
     ctx.restore();
   },
@@ -3236,7 +3206,7 @@ class GameManager {
     });
   };
 
-  // PlayerControllerの移動処理を現行ギミック仕様に合わせて上書きする。
+  // PlayerControllerの所持系プロパティは互換用に残しつつ、判定には使わない。
   PlayerController.prototype.tryMove = function(dir) {
     const noop = { moved: false, reachedGoal: false, treasureJustCollected: false, message: null };
     if (this.moving) return noop;
@@ -3265,7 +3235,7 @@ class GameManager {
     return { moved:true, reachedGoal, treasureJustCollected, message };
   };
 
-  // Analyzerの保存項目を現行ギミック仕様に合わせる。
+  // Analyzerから削除済みギミックの保存項目を除外し、危険回避判定を現行ギミックに合わせる。
   const originalAnalyze172 = Analyzer.analyze.bind(Analyzer);
   Analyzer.analyze = function(player) {
     const result = originalAnalyze172(player);
@@ -3287,6 +3257,118 @@ class GameManager {
     if (notice) notice.classList.add("lab-status-notice");
   };
 
+})();
+
+
+
+
+/* ================================================================
+   Ver.2.0 Release Candidate polish overrides
+   研究レポートの視線誘導・AI資料・宝箱・リプレイ訴求を最終調整
+================================================================ */
+(function(){
+  const byId = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+  const setText = (id, value) => { const el = byId(id); if (el) el.textContent = value; };
+  const setHtml = (id, value) => { const el = byId(id); if (el) el.innerHTML = value; };
+
+  const originalRenderResult20 = ResultRenderer.prototype.renderResult;
+  ResultRenderer.prototype.renderResult = function(record, maze, player, averages, aggregateStats) {
+    originalRenderResult20.call(this, record, maze, player, averages, aggregateStats);
+
+    const total = Math.max(1, aggregateStats?.totalPlayers || 1);
+    const count = (aggregateStats?.titleRanking || []).find((x) => x.title === record.title)?.count || 1;
+    const rate = Math.round((count / total) * 1000) / 10;
+    const ranking = [...(aggregateStats?.titleRanking || [])].sort((a,b)=>b.count-a.count);
+    const rank = Math.max(1, ranking.findIndex((x) => x.title === record.title) + 1 || ranking.length + 1);
+    setText("research-title-count", `現在 ${total}人中 ${count}名`);
+    setText("research-title-rate", `${rate}% / 人気順位 ${rank}位`);
+
+    const proposalPool = [];
+    if (record.typeCode === "D") proposalPool.push("次は近い道から順番に確認すると、効率派の称号が出るかもしれません。");
+    if (record.typeCode === "B") proposalPool.push("次はあえて寄り道すると、探究者タイプのデータが取れる可能性があります。");
+    if (record.typeCode === "L") proposalPool.push("次は直感で進むと、別の探索パターンとして記録されるかもしれません。");
+    if ((record.gimmicks?.warpUsed || 0) === 0) proposalPool.push("転送装置を使うルートを試すと、理論最短が変わる場合があります。");
+    if ((record.gimmicks?.pitfallHits || 0) === 0) proposalPool.push("怪しい床を見抜けました。次はスピード重視の探索も観測してみたいです。");
+    proposalPool.push("未知の探索パターンが、まだ発見されていません。別ルートで再実験できます。");
+    setText("replay-suggestion", pickRandom(proposalPool));
+
+    const report = byId("screen-result");
+    if (report) report.classList.add("release-report-mode");
+  };
+
+  ResultRenderer.prototype.renderExplainPersonal = function(record) {
+    setText("explain-your-title", record.title);
+    setHtml("explain-reasons", (record.reasoning || []).map((reason) => `<li>${esc(reason)}</li>`).join(""));
+    const top = [
+      ["DFS", record.dfsScore, "奥へ進む・行き止まりまで確かめる動きが強いほど上がります。"],
+      ["BFS", record.bfsScore, "少ない歩数で近い場所から確認できるほど上がります。"],
+      ["線形探索", record.linearScore, "順番を決めて一つずつ確認する動きが強いほど上がります。"],
+    ];
+    const strongest = top.slice().sort((a,b)=>b[1]-a[1])[0];
+    const dataLine = `今回のプレイでは、${strongest[0]}の特徴が一番強く出ました。歩数は${record.steps}、最短との差は${record.stepDiff >= 0 ? "+" : ""}${record.stepDiff}、探索率は${record.explorationRate}%です。`;
+    setHtml("explain-score-links", `
+      <div class="personal-data-card">
+        <p class="eyebrow">YOUR PLAY DATA</p>
+        <p>${esc(dataLine)}</p>
+        <div class="personal-score-grid">
+          ${top.map(([name, score, note]) => `<div><b>${esc(name)}</b><span>${score}%</span><small>${esc(note)}</small></div>`).join("")}
+        </div>
+        <p class="howto-hint">ゲーム中の移動ログを、DFS・BFS・線形探索の考え方に照らし合わせています。難しい言葉に見えても、要するに「どんな探し方をしたか」の分類です。</p>
+      </div>
+    `);
+  };
+
+  // 8bit RPG風の宝箱をキャンバス上でも判別しやすく再描画する。
+  Renderer._drawTreasure = function(ctx, x, y, cellPx, opened = false) {
+    const px = Math.max(1, Math.round(cellPx / 18));
+    const bx = Math.round(x + cellPx * 0.18);
+    const by = Math.round(y + cellPx * 0.33);
+    const bw = Math.round(cellPx * 0.64);
+    const bh = Math.round(cellPx * 0.42);
+    ctx.save();
+    ctx.shadowColor = opened ? "rgba(114,255,138,0.9)" : "rgba(255,206,84,0.75)";
+    ctx.shadowBlur = Math.max(5, cellPx * 0.20);
+
+    if (!opened) {
+      ctx.fillStyle = "rgba(255,206,84,0.18)";
+      ctx.fillRect(bx - px*2, by - px*2, bw + px*4, bh + px*4);
+      ctx.fillStyle = "#2b170c";
+      ctx.fillRect(bx, by + bh*0.20, bw, bh*0.78);
+      ctx.fillStyle = "#6f3c1c";
+      ctx.fillRect(bx + px*2, by + bh*0.33, bw - px*4, bh*0.52);
+      ctx.fillStyle = "#b96b2d";
+      ctx.fillRect(bx + px*2, by + bh*0.33, bw - px*4, px*2);
+      ctx.fillStyle = "#8a4a22";
+      ctx.fillRect(bx + px, by + px*2, bw - px*2, bh*0.28);
+      ctx.fillStyle = "#d38b37";
+      ctx.fillRect(bx + px*3, by + px*3, bw - px*6, px*2);
+      ctx.fillStyle = "#ffce54";
+      ctx.fillRect(bx, by + Math.round(bh*0.46), bw, px*2);
+      ctx.fillRect(bx + Math.round(bw*0.44), by + px, Math.max(px*3, Math.round(bw*0.12)), bh - px);
+      ctx.fillRect(bx + px*2, by + Math.round(bh*0.76), px*4, px*3);
+      ctx.fillRect(bx + bw - px*6, by + Math.round(bh*0.76), px*4, px*3);
+      ctx.fillStyle = "#080b12";
+      ctx.fillRect(bx + Math.round(bw*0.49), by + Math.round(bh*0.57), px*2, px*4);
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillRect(bx + px*4, by + Math.round(bh*0.38), px*5, px);
+    } else {
+      ctx.fillStyle = "#211107";
+      ctx.fillRect(bx, by + Math.round(bh*0.38), bw, Math.round(bh*0.52));
+      ctx.fillStyle = "#6b3518";
+      ctx.fillRect(bx + px*2, by + Math.round(bh*0.48), bw - px*4, Math.round(bh*0.30));
+      ctx.fillStyle = "#ffce54";
+      ctx.fillRect(bx, by + Math.round(bh*0.48), bw, px*2);
+      ctx.fillStyle = "#8a4a22";
+      ctx.fillRect(bx + px, by - Math.round(bh*0.12), bw - px*2, Math.round(bh*0.22));
+      ctx.fillStyle = "#ffd978";
+      ctx.fillRect(bx + px*4, by - Math.round(bh*0.07), bw - px*8, px*2);
+      ctx.fillStyle = "#72ff8a";
+      ctx.fillRect(bx + Math.round(bw*0.64), by - Math.round(bh*0.18), px*3, px*8);
+      ctx.fillRect(bx + Math.round(bw*0.68), by - Math.round(bh*0.02), px*8, px*3);
+    }
+    ctx.restore();
+  };
 })();
 
 

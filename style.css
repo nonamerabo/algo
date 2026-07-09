@@ -460,69 +460,20 @@ body::before {
   transition: color 0.3s ease;
 }
 .treasure-icon {
-  position: relative;
-  width: 18px;
-  height: 14px;
+  width: 12px;
+  height: 10px;
+  background: var(--wall-color);
+  border: 1px solid var(--text-dim);
   display: inline-block;
-  background:
-    linear-gradient(#ffce54 0 0) 7px 0 / 4px 14px no-repeat,
-    linear-gradient(#ffce54 0 0) 0 5px / 18px 3px no-repeat,
-    linear-gradient(#8b4a22 0 0) 2px 3px / 14px 9px no-repeat,
-    linear-gradient(#4a2512 0 0) 0 6px / 18px 8px no-repeat;
-  border: 1px solid #ffed9a;
-  box-shadow: 0 0 8px rgba(255, 206, 84, 0.35);
-  image-rendering: pixelated;
-  transition: transform 0.2s ease, box-shadow 0.3s ease, filter 0.3s ease;
-}
-.treasure-icon::before {
-  content: "";
-  position: absolute;
-  left: 1px;
-  top: -4px;
-  width: 14px;
-  height: 6px;
-  background:
-    linear-gradient(#ffce54 0 0) 6px 0 / 3px 6px no-repeat,
-    linear-gradient(#a85d28 0 0) 0 2px / 16px 5px no-repeat;
-  border: 1px solid #ffed9a;
-}
-.treasure-icon::after {
-  content: "";
-  position: absolute;
-  left: 8px;
-  top: 8px;
-  width: 3px;
-  height: 4px;
-  background: #05070d;
-}
-.treasure-badge:not(.acquired) .treasure-icon {
-  animation: treasureBadgeGlow 1.8s ease-in-out infinite;
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 .treasure-badge.acquired {
   color: var(--line-amber);
 }
 .treasure-badge.acquired .treasure-icon {
-  transform: translateY(-1px);
-  filter: saturate(1.2);
-  box-shadow: 0 0 12px rgba(255, 206, 84, 0.75), 0 0 0 1px rgba(125,255,176,0.55);
-}
-.treasure-badge.acquired .treasure-icon::before {
-  transform: translate(-2px, -5px) rotate(-10deg);
-  transform-origin: left bottom;
-}
-.treasure-badge.acquired .treasure-icon::after {
-  left: 10px;
-  top: 3px;
-  width: 5px;
-  height: 9px;
-  background: transparent;
-  border-right: 2px solid #7dffb0;
-  border-bottom: 2px solid #7dffb0;
-  transform: rotate(35deg);
-}
-@keyframes treasureBadgeGlow {
-  0%, 100% { box-shadow: 0 0 6px rgba(255,206,84,0.3); }
-  50% { box-shadow: 0 0 14px rgba(255,206,84,0.85); }
+  background: var(--line-amber);
+  border-color: #fff8e0;
+  box-shadow: 0 0 8px rgba(255, 206, 84, 0.7);
 }
 
 /* 宝箱入手時の大きなポップアップ演出（画面中央に一瞬表示） */
@@ -1797,15 +1748,203 @@ body::before {
   .type-research-data { grid-template-columns: 1fr; }
 }
 
-.report-top-action {
-  margin-top: 14px;
-  display: flex;
-  justify-content: flex-start;
+/* ============================================================
+   Ver.2.0 Release Candidate final polish
+   研究レポート感・導線・宝箱・再プレイ訴求の仕上げ
+============================================================ */
+.release-report-mode .report-frame {
+  border-color: rgba(77,238,234,0.38);
+  box-shadow:
+    0 0 0 1px rgba(77,238,234,0.14),
+    0 0 42px rgba(77,238,234,0.12),
+    0 20px 70px rgba(0,0,0,0.75);
+}
+.release-report-mode .report-subject-header {
+  padding: 18px;
+  border: 1px solid rgba(77,238,234,0.25);
+  background:
+    linear-gradient(90deg, rgba(77,238,234,0.09), transparent 55%),
+    rgba(5,7,13,0.42);
+}
+.release-report-mode .truth-reveal {
+  position: relative;
+  margin: 10px 0 20px;
+  padding: 14px 18px;
+  color: var(--line-amber);
+  font-family: var(--font-pixel);
+  font-size: clamp(12px, 2.2vw, 18px);
+  letter-spacing: 1px;
+  border: 1px dashed rgba(255,206,84,0.55);
+  background: rgba(255,206,84,0.055);
+  text-shadow: 0 0 12px rgba(255,206,84,0.45);
+}
+.release-report-mode .result-title {
+  margin-top: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed rgba(255,206,84,0.34);
+}
+.release-report-mode .report-card,
+.release-report-mode .report-wide {
+  border-radius: 2px;
+}
+.release-report-mode .ai-comment-card {
+  border-color: rgba(255,46,109,0.34);
+  background:
+    radial-gradient(circle at top right, rgba(255,46,109,0.10), transparent 34%),
+    linear-gradient(180deg, rgba(18,27,48,0.75), rgba(5,7,13,0.64));
+}
+.research-docs-primary {
+  margin-top: 20px;
+  border-color: rgba(77,238,234,0.38);
+  box-shadow: 0 0 24px rgba(77,238,234,0.08), inset 0 0 18px rgba(255,206,84,0.04);
+}
+.research-vault-lead {
+  margin: 0 0 14px;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.research-menu-grid {
+  align-items: stretch;
+}
+.research-menu-grid .pixel-btn {
+  min-height: 54px;
+}
+.research-menu-grid .glow-new {
+  background:
+    linear-gradient(180deg, rgba(77,238,234,0.16), rgba(18,27,48,0.92));
+}
+.personal-data-card {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(77,238,234,0.28);
+  background:
+    linear-gradient(135deg, rgba(77,238,234,0.08), transparent 40%),
+    rgba(5,7,13,0.55);
+}
+.personal-score-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.personal-score-grid div {
+  padding: 12px;
+  border: 1px dashed rgba(77,238,234,0.22);
+  background: rgba(18,27,48,0.62);
+}
+.personal-score-grid b,
+.personal-score-grid span {
+  display: block;
+}
+.personal-score-grid b {
+  color: var(--line-cyan);
+  font-family: var(--font-pixel);
+  font-size: 10px;
+}
+.personal-score-grid span {
+  margin: 8px 0;
+  color: var(--line-amber);
+  font-family: var(--font-pixel);
+  font-size: 18px;
+}
+.personal-score-grid small {
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.replay-suggestion-card {
+  border-color: rgba(114,255,138,0.34);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(114,255,138,0.10), transparent 30%),
+    linear-gradient(180deg, rgba(18,27,48,0.76), rgba(5,7,13,0.66));
+}
+.replay-suggestion-card .panel-title::before {
+  content: "▶ ";
+  color: #72ff8a;
 }
 .qr-subtle-card {
-  opacity: 0.9;
-  border-top: 1px dashed rgba(124, 139, 176, 0.35);
-  margin-top: 12px;
+  opacity: 0.86;
+  transform: scale(0.985);
+  transform-origin: top center;
 }
-.qr-subtle-card .panel-title { color: var(--text-dim); }
-.qr-subtle-card .qr-caption { color: var(--text-dim); }
+.qr-subtle-card .panel-title {
+  color: var(--text-dim);
+}
+.qr-subtle-card .qr-block {
+  border-color: rgba(124,139,176,0.25);
+  background: rgba(5,7,13,0.38);
+}
+/* HUD宝箱：小さくても木箱・金具・鍵穴が読める8bit風 */
+.treasure-badge {
+  background: linear-gradient(90deg, rgba(255,206,84,0.08), transparent);
+}
+.treasure-icon {
+  width: 22px;
+  height: 16px;
+  border: 2px solid #2b170c;
+  background: #6f3c1c;
+  box-shadow: inset 0 3px 0 #b96b2d, 0 0 10px rgba(255,206,84,0.30);
+  animation: treasureIdleGlow 1.7s ease-in-out infinite;
+}
+.treasure-icon::before {
+  top: -7px;
+  height: 8px;
+  background: #8a4a22;
+  border-color: #2b170c;
+  box-shadow: inset 0 2px 0 #d38b37;
+}
+.treasure-icon::after {
+  left: 9px;
+  top: -3px;
+  width: 5px;
+  height: 17px;
+  background: var(--line-amber);
+  box-shadow:
+    -9px 10px 0 -2px var(--line-amber),
+    9px 10px 0 -2px var(--line-amber),
+    0 9px 0 -1px #080b12;
+}
+@keyframes treasureIdleGlow {
+  0%,100% { filter: drop-shadow(0 0 2px rgba(255,206,84,0.25)); }
+  50% { filter: drop-shadow(0 0 8px rgba(255,206,84,0.70)); }
+}
+.treasure-badge.acquired .treasure-icon {
+  animation: none;
+  box-shadow: inset 0 2px 0 #81501f, 0 0 12px rgba(114,255,138,0.45);
+}
+.treasure-badge.acquired .treasure-icon::after {
+  background: #72ff8a;
+  box-shadow: none;
+  width: 4px;
+  height: 11px;
+  left: 12px;
+  top: 0px;
+  transform: rotate(45deg);
+}
+/* エンディング端末をMISSION BRIEFINGと同品質へ寄せる */
+#screen-ending.active {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(77,238,234,0.10), transparent 40%),
+    linear-gradient(180deg, rgba(5,7,13,0.98), rgba(1,3,10,1));
+}
+.ending-console {
+  border-color: rgba(77,238,234,0.52);
+}
+.ending-console .ending-log::first-line {
+  color: var(--line-amber);
+}
+.ending-prompt::before {
+  content: "STATUS COMPLETE / ";
+  color: #72ff8a;
+}
+@media (min-width: 980px) {
+  .release-report-mode .result-report-grid {
+    grid-template-columns: minmax(310px, 0.88fr) minmax(430px, 1.12fr);
+  }
+  .release-report-mode .report-left { position: sticky; top: 10px; }
+}
+@media (max-width: 680px) {
+  .personal-score-grid { grid-template-columns: 1fr; }
+  .research-menu-grid { grid-template-columns: 1fr; }
+  .qr-subtle-card { transform: none; }
+}

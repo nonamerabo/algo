@@ -69,7 +69,7 @@
       <div class="title-buttons">
         <button id="btn-start" class="pixel-btn primary">START</button>
       </div>
-      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.1.7</p>
+      <p class="footer-note">Cultural Festival Exhibit - Algorithm Research Lab Ver.2.0 RC</p>
     </div>
   </section>
 
@@ -256,9 +256,6 @@
             <div class="report-card ai-comment-card">
               <h3 class="panel-title small">AIコメント</h3>
               <p id="result-ai-comment" class="ai-comment">――</p>
-              <div class="report-top-action">
-                <button id="btn-explain-menu" class="pixel-btn glow-new">AIデータベース<span class="new-badge">NEW</span></button>
-              </div>
             </div>
 
             <div class="result-reason-block report-card">
@@ -267,6 +264,16 @@
             </div>
           </section>
         </div>
+
+        <section class="research-menu-block report-wide research-vault research-docs-primary">
+          <h3 class="panel-title small">研究資料</h3>
+          <p class="research-vault-lead">解析結果の理由を、アルゴリズム資料と照合できます。</p>
+          <div class="research-menu-grid">
+            <button id="btn-explain-menu" class="pixel-btn glow-new">AIデータベース<span class="new-badge">NEW</span></button>
+            <button id="btn-type-list-menu" class="pixel-btn">称号一覧</button>
+            <button id="btn-stats" class="pixel-btn">みんなの研究データ</button>
+          </div>
+        </section>
 
         <section class="report-wide report-card route-report-card">
           <h3 class="panel-title small">ルート比較</h3>
@@ -286,13 +293,9 @@
           </div>
         </section>
 
-        <section class="research-menu-block report-wide research-vault">
-          <h3 class="panel-title small">研究資料</h3>
-          <div class="research-menu-grid">
-            <button id="btn-type-list-menu" class="pixel-btn">称号一覧</button>
-            <button id="btn-stats" class="pixel-btn">みんなの研究データ</button>
-          </div>
-          <p class="howto-hint">AIデータベースは診断コメント直下から確認できます。研究資料は解析完了後に開放される追加データです。</p>
+        <section class="report-wide report-card replay-suggestion-card">
+          <h3 class="panel-title small">AIからの提案</h3>
+          <p id="replay-suggestion" class="ai-comment small">違う探索方法をすると、別の称号になる可能性があります。</p>
         </section>
 
         <section class="report-wide qr-report-card qr-subtle-card">
