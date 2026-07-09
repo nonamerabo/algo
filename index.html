@@ -256,6 +256,9 @@
             <div class="report-card ai-comment-card">
               <h3 class="panel-title small">AIコメント</h3>
               <p id="result-ai-comment" class="ai-comment">――</p>
+              <div class="report-top-action">
+                <button id="btn-explain-menu" class="pixel-btn glow-new">AIデータベース<span class="new-badge">NEW</span></button>
+              </div>
             </div>
 
             <div class="result-reason-block report-card">
@@ -283,23 +286,22 @@
           </div>
         </section>
 
-        <section class="report-wide qr-report-card">
+        <section class="research-menu-block report-wide research-vault">
+          <h3 class="panel-title small">研究資料</h3>
+          <div class="research-menu-grid">
+            <button id="btn-type-list-menu" class="pixel-btn">称号一覧</button>
+            <button id="btn-stats" class="pixel-btn">みんなの研究データ</button>
+          </div>
+          <p class="howto-hint">AIデータベースは診断コメント直下から確認できます。研究資料は解析完了後に開放される追加データです。</p>
+        </section>
+
+        <section class="report-wide qr-report-card qr-subtle-card">
           <h3 class="panel-title small">診断カードをスマホで保存</h3>
           <div class="qr-block">
             <div id="qr-canvas-wrap" class="qr-canvas-wrap"></div>
             <p class="qr-caption">診断カードをスマホで保存したい人向けのおまけ機能です</p>
             <p id="qr-fallback-url" class="qr-fallback hidden"></p>
           </div>
-        </section>
-
-        <section class="research-menu-block report-wide research-vault">
-          <h3 class="panel-title small">研究資料</h3>
-          <div class="research-menu-grid">
-            <button id="btn-explain-menu" class="pixel-btn glow-new">AIデータベース<span class="new-badge">NEW</span></button>
-            <button id="btn-type-list-menu" class="pixel-btn">称号一覧</button>
-            <button id="btn-stats" class="pixel-btn">みんなの研究データ</button>
-          </div>
-          <p class="howto-hint">※ 研究資料は解析完了後に開放されるデータベースです。</p>
         </section>
 
         <div class="result-buttons report-footer-actions">

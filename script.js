@@ -1479,36 +1479,66 @@ const Renderer = {
   },
 
   _drawTreasure(ctx, x, y, cellPx, opened = false) {
-    const bx = x + cellPx * 0.22;
-    const by = y + cellPx * (opened ? 0.34 : 0.35);
-    const bw = cellPx * 0.56;
-    const bh = cellPx * 0.38;
-    // subtle glow / acquisition sparkle
+    const bx = x + cellPx * 0.18;
+    const by = y + cellPx * 0.28;
+    const bw = cellPx * 0.64;
+    const bh = cellPx * 0.46;
+    const px = Math.max(1, Math.floor(cellPx / 18));
     ctx.save();
-    ctx.shadowColor = opened ? "rgba(255,206,84,0.85)" : "rgba(255,206,84,0.55)";
-    ctx.shadowBlur = Math.max(4, cellPx * 0.18);
-    ctx.fillStyle = "#3a2112";
-    ctx.fillRect(bx, by + bh * 0.18, bw, bh * 0.72);
-    ctx.fillStyle = "#7b421f";
-    ctx.fillRect(bx + bw * 0.06, by + bh * 0.28, bw * 0.88, bh * 0.48);
-    ctx.fillStyle = "#ffce54";
-    ctx.fillRect(bx, by + bh * 0.2, bw, bh * 0.12);
-    ctx.fillRect(bx + bw * 0.43, by + bh * 0.18, bw * 0.14, bh * 0.7);
-    ctx.fillRect(bx + bw * 0.12, by + bh * 0.7, bw * 0.12, bh * 0.12);
-    ctx.fillRect(bx + bw * 0.76, by + bh * 0.7, bw * 0.12, bh * 0.12);
-    if (opened) {
-      ctx.fillStyle = "#2a160c";
-      ctx.fillRect(bx + bw * 0.04, by - bh * 0.06, bw * 0.92, bh * 0.22);
-      ctx.fillStyle = "#ffed9a";
-      ctx.fillRect(bx + bw * 0.18, by + bh * 0.02, bw * 0.64, bh * 0.12);
-      ctx.fillStyle = "#72ff8a";
-      ctx.fillRect(bx + bw * 0.68, by - bh * 0.22, bw * 0.08, bh * 0.26);
-      ctx.fillRect(bx + bw * 0.74, by - bh * 0.12, bw * 0.18, bh * 0.08);
+    ctx.imageSmoothingEnabled = false;
+    ctx.shadowColor = opened ? "rgba(125,255,176,0.85)" : "rgba(255,206,84,0.8)";
+    ctx.shadowBlur = Math.max(6, cellPx * 0.22);
+
+    if (!opened) {
+      // closed lid
+      ctx.fillStyle = "#2b160b";
+      ctx.fillRect(bx + bw * 0.08, by + bh * 0.04, bw * 0.84, bh * 0.16);
+      ctx.fillStyle = "#a85d28";
+      ctx.fillRect(bx + bw * 0.02, by + bh * 0.12, bw * 0.96, bh * 0.24);
+      ctx.fillStyle = "#d98533";
+      ctx.fillRect(bx + bw * 0.08, by + bh * 0.16, bw * 0.84, bh * 0.08);
+      ctx.fillStyle = "#ffce54";
+      ctx.fillRect(bx + bw * 0.44, by + bh * 0.08, bw * 0.12, bh * 0.30);
+      ctx.fillRect(bx + bw * 0.06, by + bh * 0.30, bw * 0.88, bh * 0.10);
     } else {
-      ctx.fillStyle = "#0a0e17";
-      ctx.fillRect(bx + bw * 0.47, by + bh * 0.50, bw * 0.06, bh * 0.16);
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
-      ctx.fillRect(bx + bw * 0.12, by + bh * 0.34, bw * 0.18, bh * 0.06);
+      // opened lid tilted up
+      ctx.fillStyle = "#2b160b";
+      ctx.fillRect(bx + bw * 0.05, by - bh * 0.08, bw * 0.90, bh * 0.14);
+      ctx.fillStyle = "#a85d28";
+      ctx.fillRect(bx - bw * 0.02, by + bh * 0.02, bw * 0.86, bh * 0.18);
+      ctx.fillStyle = "#ffce54";
+      ctx.fillRect(bx + bw * 0.34, by - bh * 0.02, bw * 0.12, bh * 0.22);
+      ctx.fillStyle = "rgba(255,237,154,0.9)";
+      ctx.fillRect(bx + bw * 0.12, by + bh * 0.12, bw * 0.62, bh * 0.06);
+    }
+
+    // body
+    ctx.fillStyle = "#3a2112";
+    ctx.fillRect(bx, by + bh * 0.34, bw, bh * 0.58);
+    ctx.fillStyle = "#7b421f";
+    ctx.fillRect(bx + bw * 0.06, by + bh * 0.40, bw * 0.88, bh * 0.42);
+    ctx.fillStyle = "#4a2512";
+    ctx.fillRect(bx + bw * 0.06, by + bh * 0.74, bw * 0.88, bh * 0.12);
+
+    // metal bands and latch
+    ctx.fillStyle = "#ffce54";
+    ctx.fillRect(bx + bw * 0.43, by + bh * 0.30, bw * 0.14, bh * 0.60);
+    ctx.fillRect(bx + bw * 0.05, by + bh * 0.52, bw * 0.90, bh * 0.10);
+    ctx.fillRect(bx + bw * 0.12, by + bh * 0.78, bw * 0.14, bh * 0.12);
+    ctx.fillRect(bx + bw * 0.74, by + bh * 0.78, bw * 0.14, bh * 0.12);
+    ctx.fillStyle = "#05070d";
+    ctx.fillRect(bx + bw * 0.485, by + bh * 0.60, Math.max(px * 2, bw * 0.045), bh * 0.15);
+
+    // highlights / acquired check
+    if (opened) {
+      ctx.fillStyle = "#7dffb0";
+      ctx.fillRect(bx + bw * 0.68, by + bh * 0.12, bw * 0.08, bh * 0.32);
+      ctx.fillRect(bx + bw * 0.74, by + bh * 0.32, bw * 0.20, bh * 0.08);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillRect(bx + bw * 0.12, by + bh * 0.44, bw * 0.18, bh * 0.06);
+      ctx.fillStyle = "rgba(255,206,84,0.7)";
+      ctx.fillRect(bx + bw * 0.82, by + bh * 0.08, bw * 0.08, bh * 0.08);
     }
     ctx.restore();
   },
@@ -3206,7 +3236,7 @@ class GameManager {
     });
   };
 
-  // PlayerControllerの所持系プロパティは互換用に残しつつ、判定には使わない。
+  // PlayerControllerの移動処理を現行ギミック仕様に合わせて上書きする。
   PlayerController.prototype.tryMove = function(dir) {
     const noop = { moved: false, reachedGoal: false, treasureJustCollected: false, message: null };
     if (this.moving) return noop;
@@ -3235,7 +3265,7 @@ class GameManager {
     return { moved:true, reachedGoal, treasureJustCollected, message };
   };
 
-  // Analyzerから削除済みギミックの保存項目を除外し、危険回避判定を現行ギミックに合わせる。
+  // Analyzerの保存項目を現行ギミック仕様に合わせる。
   const originalAnalyze172 = Analyzer.analyze.bind(Analyzer);
   Analyzer.analyze = function(player) {
     const result = originalAnalyze172(player);
