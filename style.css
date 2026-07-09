@@ -1950,115 +1950,133 @@ body::before {
 }
 
 /* ============================================================
-   Ver.2.0 RC Final polish: readable lab notice + synced animation
+   Ver.2.0 RC Final Polish - 研究評価DATAバッジ / 宝箱最終調整
 ============================================================ */
-.route-notice.lab-alert {
-  display: grid !important;
-  grid-template-columns: auto 1fr;
-  grid-template-areas:
-    "icon head"
-    "icon body";
-  column-gap: 12px;
-  row-gap: 4px;
-  align-items: start;
-  width: 100%;
-  margin: 18px 0 8px;
-  padding: 14px 16px !important;
-  border: 2px dashed rgba(255,206,84,0.92) !important;
-  border-radius: 2px;
-  background:
-    linear-gradient(90deg, rgba(255,206,84,0.14), rgba(255,206,84,0.035)),
-    repeating-linear-gradient(135deg, rgba(255,206,84,0.055) 0 6px, transparent 6px 12px),
-    rgba(5,7,13,0.78) !important;
-  color: #ffe9a6 !important;
-  font-family: var(--font-body) !important;
-  font-size: 13px !important;
-  line-height: 1.75 !important;
-  letter-spacing: 0.02em;
-  box-shadow: 0 0 20px rgba(255,206,84,0.18), inset 0 0 20px rgba(255,206,84,0.06) !important;
-  animation: labNoticePulse 1.8s steps(2, end) infinite;
-  overflow-wrap: anywhere;
+.research-eval-block.report-card.accent-card {
+  position: relative;
+  overflow: hidden;
+  padding-top: 22px;
 }
-.route-notice.lab-alert::before {
-  content: none !important;
-}
-.lab-alert-icon {
-  grid-area: icon;
-  display: inline-grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(255,206,84,0.95);
-  background: rgba(255,206,84,0.16);
-  color: #fff2b8;
+.research-eval-block.report-card.accent-card::before {
+  content: "DATA";
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  max-width: 64px;
+  box-sizing: border-box;
   font-family: var(--font-pixel);
-  font-size: 13px;
-  box-shadow: 0 0 12px rgba(255,206,84,0.32);
-  flex: 0 0 auto;
-}
-.lab-alert-title {
-  grid-area: head;
-  display: block;
-  font-family: var(--font-pixel);
-  color: var(--line-amber);
-  font-size: 9px;
-  line-height: 1.5;
+  font-size: clamp(6px, 0.9vw, 8px);
+  line-height: 1;
   letter-spacing: 1px;
-  text-shadow: 0 0 8px rgba(255,206,84,0.45);
+  color: var(--line-amber);
+  background: rgba(5, 7, 13, 0.92);
+  border: 1px solid rgba(255, 206, 84, 0.62);
+  padding: 5px 7px;
+  box-shadow: 0 0 10px rgba(255, 206, 84, 0.18), inset 0 0 8px rgba(255, 206, 84, 0.08);
+  text-align: center;
+  pointer-events: none;
 }
-.lab-alert-body {
-  grid-area: body;
-  display: block;
-  color: #fff0bf;
-  line-height: 1.7;
+.research-eval-block.report-card.accent-card .panel-title {
+  padding-right: 72px;
 }
-@media (max-width: 520px) {
-  .route-notice.lab-alert {
-    grid-template-columns: 26px 1fr;
-    column-gap: 10px;
-    padding: 12px !important;
-    font-size: 12px !important;
+@media (max-width: 560px) {
+  .research-eval-block.report-card.accent-card {
+    padding-top: 24px;
   }
-  .lab-alert-icon { width: 26px; height: 26px; font-size: 11px; }
-  .lab-alert-title { font-size: 8px; }
+  .research-eval-block.report-card.accent-card::before {
+    top: 10px;
+    right: 10px;
+    font-size: 6px;
+    padding: 4px 6px;
+  }
+  .research-eval-block.report-card.accent-card .panel-title {
+    padding-right: 58px;
+  }
 }
 
-.aptitude-pct {
-  min-width: 48px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+/* HUD宝箱：閉じた宝箱 → 開封済みの空宝箱へ。壊れた箱に見えないようフタと本体を分離 */
+.treasure-icon {
+  position: relative;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 17px;
+  border: 2px solid #241107;
+  background:
+    linear-gradient(90deg, transparent 0 42%, #ffce54 42% 58%, transparent 58%),
+    linear-gradient(#b96b2d 0 22%, #6f3c1c 22% 78%, #3a2112 78% 100%);
+  box-shadow: inset 0 2px 0 #d38b37, 0 0 10px rgba(255,206,84,0.36);
+  image-rendering: pixelated;
+  animation: treasureIdleGlow 1.7s ease-in-out infinite;
 }
-.bar-fill {
-  transition: width 1s cubic-bezier(.16, 1, .3, 1) !important;
+.treasure-icon::before,
+.treasure-icon::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  image-rendering: pixelated;
 }
-.eval-stars {
+.treasure-icon::before {
+  left: -2px;
+  top: -8px;
+  width: 24px;
+  height: 9px;
+  border: 2px solid #241107;
+  background:
+    linear-gradient(90deg, transparent 0 42%, #ffce54 42% 58%, transparent 58%),
+    linear-gradient(#d38b37 0 28%, #8a4a22 28% 100%);
+  box-shadow: 0 2px 0 #ffce54;
+}
+.treasure-icon::after {
+  left: 10px;
+  top: 6px;
+  width: 4px;
+  height: 7px;
+  background: #080b12;
+  box-shadow:
+    -10px 5px 0 -1px #ffce54,
+    10px 5px 0 -1px #ffce54;
+}
+.treasure-badge.acquired .treasure-icon {
+  height: 15px;
+  margin-top: 3px;
+  animation: none;
+  background:
+    linear-gradient(90deg, transparent 0 42%, #ffce54 42% 58%, transparent 58%),
+    linear-gradient(#15090a 0 25%, #6f3c1c 25% 80%, #3a2112 80% 100%);
+  box-shadow: inset 0 2px 0 #8a4a22, 0 0 12px rgba(114,255,138,0.42);
+}
+.treasure-badge.acquired .treasure-icon::before {
+  top: -12px;
+  left: 0px;
+  width: 22px;
+  height: 9px;
+  transform: skewX(-10deg);
+  background:
+    linear-gradient(#2a160c 0 28%, #8a4a22 28% 78%, #ffce54 78% 100%);
+  box-shadow: 0 2px 0 rgba(255,206,84,0.55);
+}
+.treasure-badge.acquired .treasure-icon::after {
+  left: 15px;
+  top: 2px;
+  width: 5px;
+  height: 11px;
+  background: #72ff8a;
+  transform: rotate(45deg);
+  box-shadow: none;
+}
+.treasure-popup {
   display: inline-flex;
-  gap: 1px;
-  font-family: var(--font-pixel);
-  letter-spacing: 0;
+  align-items: center;
+  gap: 10px;
 }
-.eval-stars .star {
-  opacity: 0.28;
-  color: var(--text-dim);
-  transform: translateY(1px) scale(0.92);
-  transition: opacity 0.18s ease, color 0.18s ease, transform 0.18s ease, text-shadow 0.18s ease;
-}
-.eval-stars .star.on {
-  opacity: 1;
-  color: var(--line-amber);
-  transform: translateY(0) scale(1.04);
-  text-shadow: 0 0 8px rgba(255,206,84,0.62);
-}
-.report-card,
-.stat-box,
-.research-vault,
-.qr-block {
-  scroll-margin-top: 18px;
-}
-.pixel-btn {
-  will-change: transform, box-shadow;
-}
-.pixel-btn:focus-visible {
-  outline: 2px solid var(--line-amber);
-  outline-offset: 3px;
+.treasure-popup::before {
+  content: "";
+  width: 26px;
+  height: 18px;
+  border: 2px solid #241107;
+  background:
+    linear-gradient(90deg, transparent 0 42%, #ffce54 42% 58%, transparent 58%),
+    linear-gradient(#b96b2d 0 22%, #6f3c1c 22% 78%, #3a2112 78% 100%);
+  box-shadow: inset 0 2px 0 #d38b37;
 }
