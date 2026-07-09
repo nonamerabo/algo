@@ -1479,36 +1479,68 @@ const Renderer = {
   },
 
   _drawTreasure(ctx, x, y, cellPx, opened = false) {
-    const bx = x + cellPx * 0.22;
-    const by = y + cellPx * (opened ? 0.34 : 0.35);
-    const bw = cellPx * 0.56;
-    const bh = cellPx * 0.38;
-    // subtle glow / acquisition sparkle
+    const u = cellPx / 16;
+    const px = (n) => Math.round(n * u);
+    const ox = x + px(3);
+    const oy = y + px(opened ? 4 : 5);
+    const R = (gx, gy, gw, gh, color) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(ox + px(gx), oy + px(gy), px(gw), px(gh));
+    };
+
     ctx.save();
-    ctx.shadowColor = opened ? "rgba(255,206,84,0.85)" : "rgba(255,206,84,0.55)";
-    ctx.shadowBlur = Math.max(4, cellPx * 0.18);
-    ctx.fillStyle = "#3a2112";
-    ctx.fillRect(bx, by + bh * 0.18, bw, bh * 0.72);
-    ctx.fillStyle = "#7b421f";
-    ctx.fillRect(bx + bw * 0.06, by + bh * 0.28, bw * 0.88, bh * 0.48);
-    ctx.fillStyle = "#ffce54";
-    ctx.fillRect(bx, by + bh * 0.2, bw, bh * 0.12);
-    ctx.fillRect(bx + bw * 0.43, by + bh * 0.18, bw * 0.14, bh * 0.7);
-    ctx.fillRect(bx + bw * 0.12, by + bh * 0.7, bw * 0.12, bh * 0.12);
-    ctx.fillRect(bx + bw * 0.76, by + bh * 0.7, bw * 0.12, bh * 0.12);
-    if (opened) {
-      ctx.fillStyle = "#2a160c";
-      ctx.fillRect(bx + bw * 0.04, by - bh * 0.06, bw * 0.92, bh * 0.22);
-      ctx.fillStyle = "#ffed9a";
-      ctx.fillRect(bx + bw * 0.18, by + bh * 0.02, bw * 0.64, bh * 0.12);
-      ctx.fillStyle = "#72ff8a";
-      ctx.fillRect(bx + bw * 0.68, by - bh * 0.22, bw * 0.08, bh * 0.26);
-      ctx.fillRect(bx + bw * 0.74, by - bh * 0.12, bw * 0.18, bh * 0.08);
+    ctx.imageSmoothingEnabled = false;
+
+    // floor shadow + small treasure glow
+    ctx.shadowColor = opened ? "rgba(114,255,138,0.45)" : "rgba(255,206,84,0.62)";
+    ctx.shadowBlur = Math.max(5, cellPx * 0.16);
+    ctx.fillStyle = opened ? "rgba(114,255,138,0.10)" : "rgba(255,206,84,0.12)";
+    ctx.fillRect(x + px(3), y + px(12), px(10), px(2));
+    ctx.shadowBlur = 0;
+
+    if (!opened) {
+      // closed 8bit RPG treasure chest: wood body, gold bands, visible lock
+      R(1, 4, 12, 1, "#2b170c");
+      R(0, 5, 14, 7, "#2b170c");
+      R(1, 5, 12, 6, "#6f3c1c");
+      R(2, 5, 10, 2, "#a95f2b");
+      R(2, 8, 10, 2, "#4a2714");
+      R(2, 10, 10, 1, "#8a4a22");
+
+      // lid line / metal frame
+      R(1, 7, 12, 1, "#ffce54");
+      R(2, 4, 10, 1, "#d9902c");
+      R(0, 6, 2, 5, "#d9902c");
+      R(12, 6, 2, 5, "#d9902c");
+      R(6, 5, 2, 7, "#ffce54");
+      R(6, 8, 2, 3, "#fff2a3");
+
+      // lock hole and highlights
+      R(7, 9, 1, 2, "#05070d");
+      R(3, 6, 3, 1, "#d38b37");
+      R(9, 6, 2, 1, "#d38b37");
     } else {
-      ctx.fillStyle = "#0a0e17";
-      ctx.fillRect(bx + bw * 0.47, by + bh * 0.50, bw * 0.06, bh * 0.16);
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
-      ctx.fillRect(bx + bw * 0.12, by + bh * 0.34, bw * 0.18, bh * 0.06);
+      // opened chest: same box, lid raised, empty dark interior
+      R(1, 7, 12, 6, "#2b170c");
+      R(2, 8, 10, 4, "#6f3c1c");
+      R(2, 8, 10, 1, "#a95f2b");
+      R(2, 11, 10, 1, "#4a2714");
+      R(0, 8, 2, 4, "#d9902c");
+      R(12, 8, 2, 4, "#d9902c");
+      R(6, 8, 2, 5, "#ffce54");
+      R(3, 7, 8, 2, "#10090a"); // empty inside
+
+      // open lid, tilted upward but not broken
+      R(2, 2, 10, 1, "#2b170c");
+      R(1, 3, 12, 3, "#2b170c");
+      R(2, 3, 10, 2, "#8a4a22");
+      R(3, 3, 8, 1, "#d38b37");
+      R(2, 5, 10, 1, "#ffce54");
+
+      // subtle completion sparkle / check mark
+      R(11, 1, 1, 2, "#72ff8a");
+      R(12, 2, 2, 1, "#72ff8a");
+      R(10, 3, 1, 1, "#b9ffc5");
     }
     ctx.restore();
   },
@@ -1537,38 +1569,91 @@ const Renderer = {
   },
 
   _drawWarp(ctx, x, y, cellPx) {
-    const cx = x + cellPx * 0.5, cy = y + cellPx * 0.5;
-    ctx.strokeStyle = "#ff6bd6";
-    ctx.lineWidth = Math.max(2, cellPx * 0.05);
+    const u = cellPx / 16;
+    const px = (n) => Math.round(n * u);
+    const cx = x + px(8);
+    const cy = y + px(8);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.shadowColor = "rgba(77,238,234,0.85)";
+    ctx.shadowBlur = Math.max(6, cellPx * 0.20);
+
+    // hologram pad / floating glow
+    ctx.fillStyle = "rgba(77,238,234,0.18)";
+    ctx.fillRect(x + px(4), y + px(12), px(8), px(2));
+    ctx.shadowBlur = 0;
+
+    // hexagonal digital gate made from pixel lines
+    ctx.strokeStyle = "#4deeea";
+    ctx.lineWidth = Math.max(2, px(1));
     ctx.beginPath();
-    ctx.arc(cx, cy, cellPx * 0.24, 0, Math.PI * 1.5);
+    ctx.moveTo(cx, y + px(2));
+    ctx.lineTo(x + px(12), y + px(5));
+    ctx.lineTo(x + px(12), y + px(11));
+    ctx.lineTo(cx, y + px(14));
+    ctx.lineTo(x + px(4), y + px(11));
+    ctx.lineTo(x + px(4), y + px(5));
+    ctx.closePath();
     ctx.stroke();
+
+    // portal swirl / transfer core
+    ctx.strokeStyle = "#8ffcff";
+    ctx.lineWidth = Math.max(1, px(1));
     ctx.beginPath();
-    ctx.arc(cx, cy, cellPx * 0.12, 0, Math.PI * 2);
+    ctx.arc(cx, cy, px(4), Math.PI * 0.10, Math.PI * 1.55);
     ctx.stroke();
+    ctx.strokeStyle = "#2a8cff";
+    ctx.beginPath();
+    ctx.arc(cx, cy, px(2), Math.PI * 1.10, Math.PI * 2.35);
+    ctx.stroke();
+
+    // small pixel sparks
+    ctx.fillStyle = "#bfffff";
+    ctx.fillRect(x + px(3), y + px(4), px(1), px(1));
+    ctx.fillRect(x + px(12), y + px(3), px(1), px(1));
+    ctx.fillRect(x + px(13), y + px(10), px(1), px(1));
+    ctx.fillStyle = "#4deeea";
+    ctx.fillRect(x + px(5), y + px(13), px(1), px(1));
+    ctx.restore();
   },
 
   _drawPitfall(ctx, x, y, cellPx) {
-    // 初見殺しにならないよう、落ちる前から「怪しい床」と分かる表現にする
-    ctx.fillStyle = "#0a0d18";
-    ctx.fillRect(x + cellPx * 0.14, y + cellPx * 0.14, cellPx * 0.72, cellPx * 0.72);
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
-    ctx.fillRect(x + cellPx * 0.22, y + cellPx * 0.58, cellPx * 0.56, cellPx * 0.16);
+    const u = cellPx / 16;
+    const px = (n) => Math.round(n * u);
+    const R = (gx, gy, gw, gh, color) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(x + px(gx), y + px(gy), px(gw), px(gh));
+    };
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    // suspicious floor tile: darker, slightly sunken, but not an obvious black hole
+    R(3, 3, 10, 10, "#0b1120");
+    R(4, 4, 8, 8, "#11172a");
+    R(4, 10, 8, 2, "rgba(0,0,0,0.34)");
+    R(3, 3, 10, 1, "rgba(77,238,234,0.08)");
+    R(3, 12, 10, 1, "rgba(0,0,0,0.34)");
+
+    // hairline cracks / noise pixels that careful players can notice
     ctx.strokeStyle = "#7c2f55";
-    ctx.lineWidth = Math.max(2, cellPx * 0.045);
+    ctx.lineWidth = Math.max(1, px(1));
     ctx.beginPath();
-    ctx.moveTo(x + cellPx * 0.22, y + cellPx * 0.30);
-    ctx.lineTo(x + cellPx * 0.42, y + cellPx * 0.42);
-    ctx.lineTo(x + cellPx * 0.34, y + cellPx * 0.58);
-    ctx.lineTo(x + cellPx * 0.62, y + cellPx * 0.70);
-    ctx.moveTo(x + cellPx * 0.62, y + cellPx * 0.25);
-    ctx.lineTo(x + cellPx * 0.54, y + cellPx * 0.45);
-    ctx.lineTo(x + cellPx * 0.74, y + cellPx * 0.52);
+    ctx.moveTo(x + px(5), y + px(5));
+    ctx.lineTo(x + px(7), y + px(7));
+    ctx.lineTo(x + px(6), y + px(9));
+    ctx.lineTo(x + px(9), y + px(11));
+    ctx.moveTo(x + px(10), y + px(4));
+    ctx.lineTo(x + px(9), y + px(7));
+    ctx.lineTo(x + px(12), y + px(8));
     ctx.stroke();
-    ctx.fillStyle = "rgba(255,46,109,0.35)";
-    for (let i = 0; i < 4; i++) {
-      ctx.fillRect(x + cellPx * (0.22 + i * 0.14), y + cellPx * (0.22 + (i % 2) * 0.42), cellPx * 0.06, cellPx * 0.06);
-    }
+
+    R(5, 11, 1, 1, "rgba(255,46,109,0.30)");
+    R(11, 5, 1, 1, "rgba(255,46,109,0.25)");
+    R(4, 8, 1, 1, "rgba(77,238,234,0.14)");
+    R(12, 11, 1, 1, "rgba(0,0,0,0.35)");
+    ctx.restore();
   },
 
   drawMinimap(ctx, maze, revealedSet, player) {

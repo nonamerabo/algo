@@ -2095,3 +2095,79 @@ body::before {
   z-index: 60;
   pointer-events: none;
 }
+
+/* ============================================================
+   Map object icon renewal: unified 8bit RPG × cyber lab style
+   機能・サイズ・配置は変えず、HUD宝箱の見た目だけマップ宝箱と統一
+============================================================ */
+.treasure-badge {
+  gap: 8px;
+}
+.treasure-icon {
+  position: relative;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 16px;
+  background: #6f3c1c;
+  border: 2px solid #2b170c;
+  box-shadow:
+    inset 0 3px 0 #b96b2d,
+    inset 0 -3px 0 #4a2714,
+    0 0 10px rgba(255,206,84,0.32);
+  animation: treasureIdleGlow 1.7s ease-in-out infinite;
+}
+.treasure-icon::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: -7px;
+  height: 8px;
+  background: #8a4a22;
+  border: 2px solid #2b170c;
+  box-shadow: inset 0 2px 0 #d38b37;
+  transform: none;
+}
+.treasure-icon::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: -3px;
+  width: 5px;
+  height: 17px;
+  background: var(--line-amber);
+  box-shadow:
+    -9px 10px 0 -2px var(--line-amber),
+    9px 10px 0 -2px var(--line-amber),
+    0 9px 0 -1px #080b12;
+  transform: none;
+}
+.treasure-badge.acquired .treasure-icon {
+  background: #5a3118;
+  border-color: #2b170c;
+  box-shadow:
+    inset 0 2px 0 #8a4a22,
+    inset 0 -3px 0 #3a2112,
+    0 0 12px rgba(114,255,138,0.36);
+  animation: none;
+}
+.treasure-badge.acquired .treasure-icon::before {
+  top: -10px;
+  left: 1px;
+  right: 1px;
+  height: 7px;
+  background: #8a4a22;
+  border-color: #2b170c;
+  box-shadow: inset 0 2px 0 #d38b37, 0 0 8px rgba(255,206,84,0.28);
+  transform: rotate(-12deg);
+  transform-origin: left bottom;
+}
+.treasure-badge.acquired .treasure-icon::after {
+  left: 10px;
+  top: 0;
+  width: 4px;
+  height: 10px;
+  background: #72ff8a;
+  box-shadow: none;
+  transform: rotate(45deg);
+}
