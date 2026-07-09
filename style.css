@@ -2062,3 +2062,24 @@ body::before {
   outline: 2px solid var(--line-amber);
   outline-offset: 3px;
 }
+
+/* Ver.2.0 RC Final Polish+ : DATAラベルのレイヤー修正のみ
+   デザイン・サイズ・配置は変更せず、カード内要素より前面に出す。 */
+.research-eval-block,
+.research-stat-block,
+.research-menu-block {
+  overflow: visible;
+  isolation: isolate;
+}
+.research-eval-block::before,
+.research-stat-block::before,
+.research-menu-block::before {
+  z-index: 50;
+  pointer-events: none;
+}
+.research-eval-block > *,
+.research-stat-block > *,
+.research-menu-block > * {
+  position: relative;
+  z-index: 1;
+}
