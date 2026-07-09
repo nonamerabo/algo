@@ -3422,53 +3422,91 @@ class GameManager {
     `);
   };
 
-  // 8bit RPG風の宝箱をキャンバス上でも判別しやすく再描画する。
+  // マップ上の宝箱スプライト。CSSではなくCanvas描画を直接更新する。
+  // 16×16基準の少ないドットで、未取得/取得済みを一目で判別できるポップな8bit宝箱にする。
   Renderer._drawTreasure = function(ctx, x, y, cellPx, opened = false) {
-    const px = Math.max(1, Math.round(cellPx / 18));
-    const bx = Math.round(x + cellPx * 0.18);
-    const by = Math.round(y + cellPx * 0.33);
-    const bw = Math.round(cellPx * 0.64);
-    const bh = Math.round(cellPx * 0.42);
+    const u = cellPx / 16;
+    const px = (n) => Math.round(n * u);
+    const ox = x + px(2);
+    const oy = y + px(3);
+    const R = (gx, gy, gw, gh, color) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(ox + px(gx), oy + px(gy), Math.max(1, px(gw)), Math.max(1, px(gh)));
+    };
+
     ctx.save();
-    ctx.shadowColor = opened ? "rgba(114,255,138,0.9)" : "rgba(255,206,84,0.75)";
-    ctx.shadowBlur = Math.max(5, cellPx * 0.20);
+    ctx.imageSmoothingEnabled = false;
+
+    // 足元の小さな影。判定・サイズは変えず、見た目だけを少し浮かせる。
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = opened ? "rgba(77,238,234,0.08)" : "rgba(255,206,84,0.12)";
+    ctx.fillRect(x + px(4), y + px(12), px(8), px(2));
 
     if (!opened) {
-      ctx.fillStyle = "rgba(255,206,84,0.18)";
-      ctx.fillRect(bx - px*2, by - px*2, bw + px*4, bh + px*4);
-      ctx.fillStyle = "#2b170c";
-      ctx.fillRect(bx, by + bh*0.20, bw, bh*0.78);
-      ctx.fillStyle = "#6f3c1c";
-      ctx.fillRect(bx + px*2, by + bh*0.33, bw - px*4, bh*0.52);
-      ctx.fillStyle = "#b96b2d";
-      ctx.fillRect(bx + px*2, by + bh*0.33, bw - px*4, px*2);
-      ctx.fillStyle = "#8a4a22";
-      ctx.fillRect(bx + px, by + px*2, bw - px*2, bh*0.28);
-      ctx.fillStyle = "#d38b37";
-      ctx.fillRect(bx + px*3, by + px*3, bw - px*6, px*2);
-      ctx.fillStyle = "#ffce54";
-      ctx.fillRect(bx, by + Math.round(bh*0.46), bw, px*2);
-      ctx.fillRect(bx + Math.round(bw*0.44), by + px, Math.max(px*3, Math.round(bw*0.12)), bh - px);
-      ctx.fillRect(bx + px*2, by + Math.round(bh*0.76), px*4, px*3);
-      ctx.fillRect(bx + bw - px*6, by + Math.round(bh*0.76), px*4, px*3);
-      ctx.fillStyle = "#080b12";
-      ctx.fillRect(bx + Math.round(bw*0.49), by + Math.round(bh*0.57), px*2, px*4);
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      ctx.fillRect(bx + px*4, by + Math.round(bh*0.38), px*5, px);
+      // 取得前：丸みのある木箱＋金具＋鍵穴。少ないドットで宝箱らしさを優先。
+      ctx.shadowColor = "rgba(255,206,84,0.55)";
+      ctx.shadowBlur = Math.max(3, cellPx * 0.12);
+      R(1, 4, 12, 8, "#2a160c"); // outline
+      ctx.shadowBlur = 0;
+
+      // lid / body
+      R(2, 4, 10, 1, "#5a2b16");
+      R(1, 5, 12, 3, "#9b5525");
+      R(2, 5, 10, 1, "#d57932");
+      R(2, 7, 10, 1, "#663119");
+      R(1, 8, 12, 4, "#7a3d1d");
+      R(2, 8, 10, 1, "#b8642d");
+      R(2, 11, 10, 1, "#3a1d10");
+
+      // chunky gold bands
+      R(1, 8, 12, 1, "#ffcf4a");
+      R(1, 5, 2, 7, "#e7a93a");
+      R(11, 5, 2, 7, "#e7a93a");
+      R(2, 5, 1, 1, "#fff0a6");
+      R(11, 5, 1, 1, "#fff0a6");
+
+      // center lock plate and keyhole
+      R(5, 8, 4, 3, "#ffd95a");
+      R(6, 9, 2, 2, "#05070d");
+      R(7, 10, 1, 1, "#05070d");
+
+      // tiny sparkle kept inside the tile so it does not affect collision/placement
+      R(13, 2, 1, 1, "#fff4b8");
+      R(12, 3, 3, 1, "#ffcf4a");
+      R(13, 4, 1, 1, "#fff4b8");
+      R(0, 3, 1, 1, "#fff4b8");
     } else {
-      ctx.fillStyle = "#211107";
-      ctx.fillRect(bx, by + Math.round(bh*0.38), bw, Math.round(bh*0.52));
-      ctx.fillStyle = "#6b3518";
-      ctx.fillRect(bx + px*2, by + Math.round(bh*0.48), bw - px*4, Math.round(bh*0.30));
-      ctx.fillStyle = "#ffce54";
-      ctx.fillRect(bx, by + Math.round(bh*0.48), bw, px*2);
-      ctx.fillStyle = "#8a4a22";
-      ctx.fillRect(bx + px, by - Math.round(bh*0.12), bw - px*2, Math.round(bh*0.22));
-      ctx.fillStyle = "#ffd978";
-      ctx.fillRect(bx + px*4, by - Math.round(bh*0.07), bw - px*8, px*2);
-      ctx.fillStyle = "#72ff8a";
-      ctx.fillRect(bx + Math.round(bw*0.64), by - Math.round(bh*0.18), px*3, px*8);
-      ctx.fillRect(bx + Math.round(bw*0.68), by - Math.round(bh*0.02), px*8, px*3);
+      // 取得済み：壊れた箱ではなく、フタが開いた空っぽの宝箱。
+      ctx.shadowColor = "rgba(77,238,234,0.25)";
+      ctx.shadowBlur = Math.max(2, cellPx * 0.08);
+      R(1, 2, 12, 4, "#2a160c"); // open lid outline
+      R(1, 8, 12, 4, "#2a160c"); // base outline
+      ctx.shadowBlur = 0;
+
+      // opened lid behind the base
+      R(2, 2, 10, 1, "#5a2b16");
+      R(1, 3, 12, 3, "#8e4a22");
+      R(2, 3, 10, 1, "#c86d30");
+      R(2, 5, 10, 1, "#4b2413");
+      R(1, 6, 12, 1, "#ffcf4a");
+
+      // empty dark interior clearly visible
+      R(3, 6, 8, 2, "#15080a");
+      R(4, 7, 6, 1, "#2b120d");
+
+      // base chest, still intact
+      R(1, 8, 12, 4, "#7a3d1d");
+      R(2, 8, 10, 1, "#b8642d");
+      R(2, 11, 10, 1, "#3a1d10");
+      R(1, 8, 12, 1, "#ffcf4a");
+      R(1, 8, 2, 4, "#e7a93a");
+      R(11, 8, 2, 4, "#e7a93a");
+      R(5, 9, 4, 2, "#ffd95a");
+      R(6, 10, 2, 1, "#05070d");
+
+      // small cyan glint meaning “collected”, not a broken mark
+      R(12, 3, 1, 1, "#9ffcff");
+      R(13, 4, 1, 1, "#4deeea");
     }
     ctx.restore();
   };
