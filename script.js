@@ -3372,6 +3372,84 @@ class GameManager {
 })();
 
 
+
+/* ================================================================
+   Ver.2.0 RC Final polish overrides
+   - ワープ解析通知をアイコン/タイトル/本文に分離
+   - 適性バーと数値を1秒前後で同期アニメーション
+   - 研究評価の星を順番に点灯
+================================================================ */
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+
+  ResultRenderer.prototype._animateBar = function(barId, pctId, value) {
+    const bar = $(barId);
+    const pct = $(pctId);
+    const target = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    const duration = 1000;
+    const start = performance.now();
+    if (bar) {
+      bar.style.width = "0%";
+      bar.style.transition = "none";
+      // 強制リフローで毎回0%から気持ちよく伸ばす
+      void bar.offsetWidth;
+      bar.style.transition = "width 1s cubic-bezier(.16, 1, .3, 1)";
+      requestAnimationFrame(() => { bar.style.width = target + "%"; });
+    }
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const current = Math.round(target * easeOutCubic(t));
+      if (pct) pct.textContent = current + "%";
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+
+  function buildLabNotice(title, body) {
+    return `
+      <span class="lab-alert-icon" aria-hidden="true">ⓘ</span>
+      <span class="lab-alert-title">${esc(title)}</span>
+      <span class="lab-alert-body">${esc(body)}</span>
+    `;
+  }
+
+  function animateStars(el, starsText) {
+    if (!el) return;
+    const onCount = (starsText.match(/★/g) || []).length;
+    el.innerHTML = `<span class="eval-stars" aria-label="${esc(starsText)}">${Array.from({ length: 5 }, (_, i) => `<span class="star${i < onCount ? " target" : ""}">★</span>`).join("")}</span>`;
+    const stars = Array.from(el.querySelectorAll(".star.target"));
+    stars.forEach((star, i) => {
+      setTimeout(() => star.classList.add("on"), 120 + i * 120);
+    });
+  }
+
+  const previousRenderResultFinal = ResultRenderer.prototype.renderResult;
+  ResultRenderer.prototype.renderResult = function(record, maze, player, averages, aggregateStats) {
+    previousRenderResultFinal.call(this, record, maze, player, averages, aggregateStats);
+
+    const notice = $("warp-shortest-notice");
+    if (notice) {
+      notice.className = "route-notice lab-alert";
+      const normal = typeof normalMissionPath === "function" ? normalMissionPath(maze) : [];
+      const gimmick = typeof gimmickMissionPath === "function" ? gimmickMissionPath(maze) : [];
+      const normalSteps = typeof pathSteps === "function" ? pathSteps(normal) : 0;
+      const gimmickSteps = typeof pathSteps === "function" ? pathSteps(gimmick) : 0;
+      let body = "このマップでは通常経路が理論最短として採用されました。";
+      if ((record.gimmicks?.warpUsed || 0) > 0) {
+        body = "ワープ使用により、あなたの探索ルートに転送行動が記録されました。";
+      } else if (gimmickSteps < normalSteps) {
+        body = "このマップでは、転送装置を使うと理論最短が短くなる可能性があります。";
+      }
+      notice.innerHTML = buildLabNotice("解析ステータス", body);
+    }
+
+    const evalQuality = $("eval-quality");
+    if (evalQuality) animateStars(evalQuality, evalQuality.textContent || "★★★☆☆");
+  };
+})();
+
 /* ================================================================
    初期化処理
 ================================================================ */
